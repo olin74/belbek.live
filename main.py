@@ -286,7 +286,7 @@ class Live:
     # Вывод поисковых результатов
     def go_search(self, bot, message):
         user_id = message.from_user.id
-
+        print(self.users['search'][user_id].decode('utf-8'))
         s_list = json.loads(self.users['search'][user_id].decode('utf-8'))
         s_len = len(s_list)
         if s_len == 0:
