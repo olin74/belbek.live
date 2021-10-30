@@ -554,7 +554,10 @@ class Live:
             if call.data[:4] == "lcat":
                 cat = call.data.split('_')[1]
                 label_id = int(self.users['status'][user_id])
-                categories = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
+                categories = []
+                if label_id in self.labels['subcategory']:
+                    categories = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
+
                 if cat in categories:
                     categories.remove(cat)
                 else:
