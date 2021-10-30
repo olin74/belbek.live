@@ -4,14 +4,15 @@ import redis
 import telebot
 from telebot import types
 import time
-import datetime
 import re
 import os
 
 # Устанавливаем константы
 ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только Олин)
-ABOUT_LIMIT = 100  # Лимит символов в превью
-DESCRIPTION_LIMIT = 600  # Лимит символов в описании
+ABOUT_LIMIT = 100  # Лимит символов в описании
+DESCRIPTION_LIMIT = 600  # Лимит символов в подробностях
+PRICE_LIMIT = 20  # Лимит символов в цене
+LIST_STEP = 10
 CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact",
                  "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
                  "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
@@ -51,234 +52,316 @@ class Live:
                       'category': redis.from_url(redis_url, db=5),
                       'subcategory': redis.from_url(redis_url, db=6),
                       'name': redis.from_url(redis_url, db=7),
-                      'username': redis.from_url(redis_url, db=8)
+                      'username': redis.from_url(redis_url, db=8),
+                      'search': redis.from_url(redis_url, db=9),
+                      'labels': redis.from_url(redis_url, db=10),
+                      'last_login': redis.from_url(redis_url, db=11)
                       }
         # База данных меток
         self.labels = {'about': redis.from_url(redis_url_labels, db=1),
                        'description': redis.from_url(redis_url_labels, db=2),
                        'photos': redis.from_url(redis_url_labels, db=3),
                        'price': redis.from_url(redis_url_labels, db=4),
-                       'category': redis.from_url(redis_url_labels, db=5),
+                       'subcategory': redis.from_url(redis_url_labels, db=5),
                        'tags': redis.from_url(redis_url_labels, db=6),
                        'status_label': redis.from_url(redis_url_labels, db=7),
                        'geo_long': redis.from_url(redis_url_labels, db=8),
                        'geo_lat': redis.from_url(redis_url_labels, db=9),
                        'views': redis.from_url(redis_url_labels, db=10),
-                       'author': redis.from_url(redis_url_labels, db=11)
+                       'author': redis.from_url(redis_url_labels, db=11),
+                       'zoom': redis.from_url(redis_url_labels, db=12)
                        }
+        self.index = 0
+        for k in self.labels['status_label'].keys():
+            self.index = k
+        # База данных событий
         # self.events =
         self.categories = json.loads("category.json")
-
-
-        self.menu_items = ['Поиск', 'Менеджер меток']
-        self.menu_labels = ['Изменить объявление', 'Изменить радиус', 'Изменить цену за км', 'Выход',
-                               'Поддержка', "✳️ Создать метку ✳️"]
-        self.menu_stop = "⛔️ Прекратить поиск ⛔️"
-
-    # Среднее значение среди водителей по произвольному полю
-    def get_avg(self, field: str):
-        tot = 0
-        count = 0
-        for k in self.labels[field].keys():
-            tot += int(self.labels[field][k])
-            count += 1
-        if count == 0:
-            return 0
-        return int(tot / count)
+        self.menu_items = [f'Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
+                           'Менеджер объявлений']
+        self.menu_labels = ['Выход', "✳️ Создать метку ✳️"]
+        self.menu_edit_label = ['Изменить описание', 'Изменить подробности', 'Изменить фотографии', 'Изменить цену',
+                                'Изменить категорию', 'Изменить опции', 'Удалить', 'Опубликовать', 'Продвижение']
+        # Чистка базы
+        for field in self.labels:
+            for key in self.labels[field].keys():
+                if key not in self.labels['status'].keys():
+                    self.labels[field].delete(key)
 
     # Стартовое сообщение
     def go_start(self, bot, message):
-        username = message.chat.id
+        user_id = message.from_user.id
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-        menu_keyboard.row(types.KeyboardButton(text=self.menu_items[0], request_location=True),
-                          types.KeyboardButton(text=self.menu_items[1]))
-        # Сброс статуса "в поиске пассажира" и ожидания ввода текста
-        if username in self.labels['status'] and int(self.labels['status'][username]) >= 0:
-            self.labels['status'][username] = -1
-        if username in self.labels['wait'] and int(self.labels['wait'][username]) >= 0:
-            self.labels['wait'][username] = -1
-        # Подсчет статистики водителей (всего и активных), а также пассажиров в поиске
-        total = 0
+
+        first_row = []
+        if user_id in self.users['search']:
+            first_row.append(types.KeyboardButton(text=self.menu_items[0]))
+        first_row.append(types.KeyboardButton(text=self.menu_items[1], request_location=True))
+        menu_keyboard.row(first_row)
+
+        second_row = [types.KeyboardButton(text=self.menu_items[2])]
+        if user_id in self.users['category']:
+            first_row.append(types.KeyboardButton(text=self.menu_items[3]))
+
+        second_row.append(types.KeyboardButton(text=self.menu_items[4]))
+        menu_keyboard.row(second_row)
+        # Сброс статуса и ожидания ввода текста
+        self.users['status'][user_id] = -1
+        self.users['wait'][user_id] = 0
+        # Подсчет статистики
         active = 0
-        for dr in self.labels['status'].keys():
-            total += 1
-            if int(self.labels['status'][dr]) == 1:
+        for label_id in self.labels['status_labels'].keys():
+            if int(self.labels['status_labels'][label_id]) == 1:
                 active += 1
-        menu_message = f"Водителей зарегестрировно: {total}\nСейчас доступно: {active}\n" \
-                       f"Канал поддержки https://t.me/BelbekTaxi\n" \
-                       f"👍 Для поиска машины нажмите “Поиск машины” (определение геолокации должно быть включено)" \
-                       f" или отправьте свои координаты текстом," \
-                       f" бот предложит связаться с водителями, готовыми приехать за вами. "
+        # f"Канал поддержки https://t.me/BelbekLive\n" \
+        menu_message = f"Объявлений опубликовано: {active}\n" \
+                       f"👍 Для поиска мест, укажите категорию, нажмите “Поиск” " \
+                       f"(определение геолокации должно быть включено)" \
+                       f" или отправьте свои координаты текстом."
+        if user_id in self.users['category']:
+            menu_message = menu_message + f"\nКатегория:{self.users['category'][user_id].decode('utf-8')}"
+        if user_id in self.users['subcategory']:
+            menu_message = menu_message + f"\nПодкатегория:{self.users['subcategory'][user_id].decode('utf-8')}"
         bot.send_message(message.chat.id, menu_message, reply_markup=menu_keyboard, disable_web_page_preview=True)
 
     # Запрос объявления
-    def go_about(self, bot, message):
+    def go_about(self, bot, message, label_id):
         keyboard = types.ReplyKeyboardRemove()
-        username = message.chat.id
+        user_id = message.from_user.id
         # Устанавливаем ожидание текстового ответа для поля "объявление"
-        self.labels['wait'][username] = 0
-        bot.send_message(message.chat.id, f"Расскажите немного о себе и машине (не больше {ABOUT_LIMIT} символов),"
-                                          f" например: “Ильдар. Синяя Хонда. Вожу быстро, но аккуратно.”",
+        self.users['wait'][user_id] = 1
+        self.users['status'][user_id] = label_id
+        bot.send_message(message.chat.id, f"Введите краткое описание места (не больше {ABOUT_LIMIT} символов),"
+                                          f" например: “Спот. Культурное протранство. Туристический центр.”",
                          reply_markup=keyboard)
         return
 
-    # Запрос радиуса поиска
-    def go_radius(self, bot, message):
+    # Запрос подробностей
+    def go_description(self, bot, message, label_id):
         keyboard = types.ReplyKeyboardRemove()
-        username = message.chat.id
-        # Устанавливаем ожидание текстового ответа для радиуса (числового на самом деле, но проверим это позже)
-        self.labels['wait'][username] = 1
-        avg_km = self.get_avg('radius')
-        bot.send_message(message.chat.id, f"Задайте расстояние в километрах на которое вы готовы поехать за пассажиром."
-                                          f"\nСреднее среди водителей: {avg_km}", reply_markup=keyboard)
+        user_id = message.from_user.id
+        # Устанавливаем ожидание текстового ответа для поля "подробности"
+        self.users['wait'][user_id] = 2
+        self.users['status'][user_id] = label_id
+        bot.send_message(message.chat.id, f"Введите подробное описание места (не больше {DESCRIPTION_LIMIT} символов)",
+                         reply_markup=keyboard)
         return
 
-    # Запрос оцены за км
-    def go_price(self, bot, message):
+    # Запрос цены
+    def go_price(self, bot, message, label_id):
         keyboard = types.ReplyKeyboardRemove()
-        username = message.chat.id
-        # Устанавливаем ожидание текстового ответа для цены(числового на самом деле, но проверим это позже)
-        self.labels['wait'][username] = 2
-        avg_price = self.get_avg('price')
-        bot.send_message(message.chat.id, f"Напишите сколько денег обычно вы берёте за километр пути (примерно)."
-                                          f"\nСреднее среди водителей: {avg_price}", reply_markup=keyboard)
+        user_id = message.from_user.id
+        # Устанавливаем ожидание текстового ответа для поля "цена"
+        self.users['wait'][user_id] = 4
+        self.users['status'][user_id] = label_id
+        bot.send_message(message.chat.id,
+                         f"Введите цены (не больше {PRICE_LIMIT} символов), например: “от 300 рублей/сутки”",
+                         reply_markup=keyboard)
         return
 
-    # Формирование описания профиля водителя
-    def get_profile(self, username):
-        info_about = "Поле не заполнено"
-        if username in self.labels['about']:
-            info_about = self.labels['about'][username].decode("utf-8")
-        info_radius = "Поле не заполнено"
-        if username in self.labels['radius']:
-            info_radius = f"{int(self.labels['radius'][username])} км"
-        info_price = "Поле не заполнено"
-        if username in self.labels['price']:
-            info_price = f"{int(self.labels['price'][username])} руб/км"
-        impressions = 0
-        if username in self.labels['impressions']:
-            # Проверка на смену дня и сброс счетчика
-            dt_timestamp = int(datetime.datetime.combine(datetime.date.today(), datetime.time(0, 0, 0)).timestamp())
-            if int(self.labels['last_impression'][username]) < dt_timestamp:
-                self.labels['impressions'][username] = 0
-                current_time = int(time.time())
-                self.labels['last_impression'][username] = current_time
-            impressions = int(self.labels['impressions'][username])
-        balance = 0
-        if username in self.labels['views']:
-            balance = int(self.labels['views'][username])
+        # Послать краткую метку
+    def send_label(self, bot, message, label_id):
+        keyboard = types.InlineKeyboardMarkup()
+        label_text = f"\nОписание: {self.labels['about'][label_id].decode('utf-8')}"
+        if label_id in self.labels['price']:
+            label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
+        label_text = label_text + f"\n@{self.labels['author'][label_id].decode('utf-8')}"
+        keyboard.add(types.InlineKeyboardButton(text="Подробнее", callback_data=f"show_{label_id}"))
+        bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
+        return
 
-        info = f"Объявление: {info_about}\nОриентировочная цена: {info_price}\nРадиус поиска: {info_radius}\n" \
-               f"Показов сегодня: {impressions}" \
-               f"\nПоказов всего: {balance}"
-        return info
+        # Послать полную метку
+    def send_full_label(self, bot, message, label_id):
+        if label_id not in self.labels['description']:
+            self.go_about(bot, message, label_id)
+            return
+        if label_id not in self.labels['category']:
+            self.go_cat(bot, message, label_id)
+            return
+        c_list = json.loads(self.users['category'][label_id].decode('utf-8'))
+        if len(c_list) == 0:
+            self.go_cat(bot, message, label_id)
+            return
+        keyboard = types.InlineKeyboardMarkup(row_width=2)
+        user_id = message.from_user.id
+        label_text = f"\nОписание: {self.labels['about'][label_id].decode('utf-8')}"
+        if label_id in self.labels['description']:
+            label_text = label_text + f"\nПодробности: {self.labels['description'][label_id].decode('utf-8')}"
+        if label_id in self.labels['price']:
+            label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
+        label_text = label_text + f"\nПодкатегории: {','.join(c_list)}"
+        label_text = label_text + f"\nПросмотров: {int(self.labels['views'][label_id])}"
+        label_text = label_text + f"\n@{self.labels['author'][label_id].decode('utf-8')}"
+        button_list = []
+        if int(self.users['status'][user_id]) < 0:
+            button_list.append(types.InlineKeyboardButton(text="Выслать координаты", callback_data=f"geo_{label_id}"))
+        else:
+            button_list.append(types.InlineKeyboardButton(text="Изменить описание", callback_data=f"abo_{label_id}"))
+            button_list.append(types.InlineKeyboardButton(text="Изменить подробности", callback_data=f"des_{label_id}"))
+            button_list.append(types.InlineKeyboardButton(text="Изменить цену", callback_data=f"pri_{label_id}"))
+            button_list.append(types.InlineKeyboardButton(text="Изменить категорию", callback_data=f"cat_{label_id}"))
+            if int(self.labels['status_label']) == 0:
+                button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
+            if int(self.labels['status_label']) == 1:
+                button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
+        keyboard.add(button_list)
+        bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
 
-    # Меню водителя
-    def go_menu_car(self, bot, message):
-        username = message.chat.id
-        menu_car = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-        menu_car.row(types.KeyboardButton(text=self.menu_car_items[0]),
-                     types.KeyboardButton(text=self.menu_car_items[1]))
-        menu_car.row(types.KeyboardButton(text=self.menu_car_items[2]),
-                     types.KeyboardButton(text=self.menu_car_items[3]))
-        menu_car_text = "Ваш профиль:\n" + self.get_profile(username)
+    # Меню менеджера меток
+    def go_menu_labels(self, bot, message, first=True):
+        user_id = message.from_user.id
+        menu_label_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+
+        label_id = int(self.users['status'][user_id])
+
+        if label_id > 0:
+            self.send_full_label(bot, message, label_id)
+        else:
+            user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
+            for user_label_id in user_labels:
+                self.send_label(bot, message, user_label_id)
+
+        # Сохраним username пользователя, если есть
         if message.chat.username is not None:
-            self.labels['username'][username] = message.chat.username
+            self.users['username'][user_id] = message.chat.username
+        # Сохраним имя пользователя, если есть
+        name = ""
+        if message.chat.first_name is not None:
+            name = name + message.chat.first_name
+        if message.chat.last_name is not None:
+            name = name + " " + message.chat.last_name
+        self.users['name'][user_id] = name
 
-        # Если заполнены все поля ...
-        if username in self.labels['about'] and username in self.labels['radius'] \
-                and username in self.labels['price']:
-            # Инициализируем просмотры
-            if username not in self.labels['views']:
-                self.labels['views'][username] = 0
-            # Ставим статус готовности к поиску пассажиров
-            self.labels['status'][username] = 0
+        keyboard_row = [types.KeyboardButton(text=self.menu_labels[0])]
+        # Если задан username то покажем кнопку
+        menu_label_text = f"Задайте имя пользователя в аккаунте Telegram, что бы создавать метки."
+        if message.chat.username is not None:
+            keyboard_row.append(types.KeyboardButton(text=self.menu_labels[1], request_location=True))
+            menu_label_text = f"Для создания метки там, где вы находитесь нажмите “Создать метку” или " \
+                              f"отправьте координаты текстом."
 
-            # Сохраним имя пользователя, если есть
-            name = ""
-            if message.chat.first_name is not None:
-                name = name + message.chat.first_name
-            if message.chat.last_name is not None:
-                name = name + " " + message.chat.last_name
-            self.labels['name'][username] = name
+        menu_label_keyboard.row(keyboard_row)
+        if first:
+            bot.send_message(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
+        else:
+            bot.edit_message_text(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
 
-        # Если водитель готов к поиску, то покажем кнопку поиска
-        if username in self.labels['status'] and int(self.labels['status'][username]) == 0:
-            if message.chat.username is not None:
-                menu_car.row(types.KeyboardButton(text=self.menu_car_items[6], request_location=True))
-                menu_car_text = menu_car_text + f"\n\n🚕 Для поиска пассажира нажмите “Поиск пассажира” " \
-                                                f"(или отправьте свои координаты текстом)."
-            else:
-                menu_car_text = menu_car_text + f"\n\nЗадайте имя пользователя в аккаунте Telegram," \
-                                                f" что бы бот мог направить вам пассажиров."
-        else:  # &$#
-            menu_car_text = menu_car_text + "\n\n Заполните все поля, что бы начать поиск пассажиров!"
-        bot.send_message(message.chat.id, menu_car_text, reply_markup=menu_car)
+    # Формирование списка поиска
+    def get_search_list(self, message, location):
+        user_id = message.from_user.id
+        # Перебираем все метки
+        geo = {}
+        for label_id in self.labels['status_label'].keys():
 
-    # Функция увеличения счетчика просмотров у водителя
-    def inc_impression(self, user_driver):
-        current_time = int(time.time())
-        # Проверка на смену дат и обнуление
-        dt_timestamp = int(datetime.datetime.combine(datetime.date.today(), datetime.time(0, 0, 0)).timestamp())
-        if user_driver not in self.labels['last_impression'] or int(
-                self.labels['last_impression'][user_driver]) < dt_timestamp:
-            self.labels['impressions'][user_driver] = 0
-        # Увеличиваем счетчик дня
-        self.labels['impressions'][user_driver] = int(self.labels['impressions'][user_driver]) + 1
-        # Увеличиваем счетчик общий
-        self.labels['views'][user_driver] = int(self.labels['views'][user_driver]) + 1
-        # Запоминаем время последнего показа водительского объявления пользователю
-        self.labels['last_impression'][user_driver] = current_time
+            # Нам нужны только опубликованые
+            if int(self.labels['status'][label_id]) == 1:
+                # Вычисляем расстояние до метки
+                user_subcategories = []
+                if user_id in self.users['category']:
+                    user_category = self.users['category'][user_id].decode('utf-8')
+                    user_subcategories = self.categories[user_category]
+                    if user_id in self.users['subcategory'][user_id]:
+                        user_subcategory = self.users['subcategory'][user_id].decode('utf-8')
+                        user_subcategories = [user_subcategory]
+                if len(user_subcategories) > 0:
+                    label_subcategories = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
+                    cont = False
+                    for sub in label_subcategories:
+                        if sub in user_subcategories:
+                            cont = True
+                            break
+                    if not cont:
+                        continue
 
-    # Формирование списка водителей во время поиска
-    def go_search(self, bot, message, location):
-        result_list = []
-
-        result_message = ''
-        # Перебираем всех водителей
-        for user_driver_ne in self.labels['status'].keys():
-            user_driver = user_driver_ne.decode("utf-8")
-            # Нам нужны только активныуе ("в поиске")
-            if int(self.labels['status'][user_driver]) == 1:
-                # Вычисляем расстояние до водителя
                 dist = get_distance(location['longitude'], location['latitude'],
-                                    float(self.labels['geo_long'][user_driver]),
-                                    float(self.labels['geo_lat'][user_driver]))
+                                    float(self.labels['geo_long'][label_id]),
+                                    float(self.labels['geo_lat'][label_id]))
                 # Если водитель рядом, то добавляем в результирующий список
-                if dist < int(self.labels['radius'][user_driver]):
-                    result_list.append(user_driver)
-                    result_message = result_message + f"🚕 {self.labels['about'][user_driver].decode('utf-8')}\n" \
-                                                      f"🚖: {dist:.2f} км\n" \
-                                                      f"💰: {int(self.labels['price'][user_driver])} руб/км\n" \
-                                                      f"@{self.labels['username'][user_driver].decode('utf-8')}\n\n"
-                    # Если этого водителя нету в недавнем поиске, то накручиваем ему счетчик просмотра
+                geo[label_id] = dist
 
-                    self.inc_impression(user_driver)
-        s_count = len(result_list)
-        m_text = "Ничего не найдено! Рядом с Вами нет водителей готовых подвезти вас, придется попробовать позже."
-        if s_count > 0:
-            m_text = f"Найдено водителей: {s_count}\n\n{result_message}" \
-                     f"Можете связаться с любым водителем и договориться с ним о совместной поедке." \
-                     " Приятной дороги, не забудьте пристегнуть ремни безопасности!"
+        return sorted(geo, key=geo.get)
+
+    # Вывод поисковых результатов
+    def go_search(self, bot, message):
+        user_id = message.from_user.id
+
+        s_list = json.loads(self.users['search'][user_id].decode('utf-8'))
+        s_len = len(s_list)
+        if s_len == 0:
+            m_text = "Ничего не найдено! Этот раздел еще не начал наполняться."
+        else:
+            m_text = f"Найдено меток: {s_len}"
         bot.send_message(message.chat.id, m_text)
+        for i in range(LIST_STEP):
+            if len(s_list) == 0:
+                break
+            self.send_label(bot, message, s_list[0])
+            self.labels['views'][s_list[0]] = int(self.labels['views'][s_list[0]]) + 1
+            del s_list[0]
+        if len(s_list) == 0:
+            self.users['search'].delete(user_id)
+        else:
+            self.users['search'][user_id] = json.dumps(s_list)
 
-    # Получены координаты тем или иным образом от пассажира или водителя
+    # Получены координаты тем или иным образом
     def go_location(self, bot, message, location):
-        username = message.chat.id
-        # Определение того кто нажал на кнопку
-        if username in self.labels['status'] and int(self.labels['status'][username]) >= 0:  # Водитель
-            if username in self.labels['username']:
-                # Ставлю водитлею статус "в поиске"
-                self.labels['status'][username] = 1
-                self.labels['geo_long'][username] = location['longitude']
-                self.labels['geo_lat'][username] = location['latitude']
-                search_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-                search_keyboard.row(types.KeyboardButton(text=self.menu_stop))
-                bot.send_message(message.chat.id, f"Идет поиск. Потенциальным пассажирам в указанном вами радиусе бот"
-                                                  f" будет показывать ваше оъявление. Ждите, вам напишут.",
-                                 reply_markup=search_keyboard)
-        else:  # На кнопку нажал пассажир
-            self.go_search(bot, message, location)
+        user_id = message.from_user.id
+        # Определение того что делать, искать или создать метку
+        if int(self.users['status'][user_id]) == 0:  # Создать метку
+            if user_id in self.users['username']:
+                # Создаём метку
+                self.index += 1
+                self.labels['status_label'].setex(self.index, 86400, 0)
+                self.labels['views'][self.index] = 0
+                self.labels['geo_long'][self.index] = location['longitude']
+                self.labels['geo_lat'][self.index] = location['latitude']
+                self.labels['author'][self.index] = self.users['username'][user_id].decode('utf-8')
+                self.users['status'][user_id] = self.index
+                user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
+                user_labels.append(self.index)
+                self.users['labels'][user_id] = json.dumps(user_labels)
+
+                self.go_menu_labels(bot, message)
+
+        elif int(self.users['status'][user_id]) < 0:  # Поиск
+            self.users['search'] = json.dumps(self.get_search_list(message, location))
+            self.go_search(bot, message)
+            self.go_start(bot, message)
+
+    def select_cat(self, bot, message):
+        keyboard = types.InlineKeyboardMarkup()
+
+        for cat in self.categories.keys():
+            keyboard.row(types.InlineKeyboardButton(text=cat, callback_data=f"ucat_{cat}"))
+
+        bot.send_message(message.chat.id, "Выберите категорию:", reply_markup=keyboard)
+
+    def select_sub(self, bot, message):
+        keyboard = types.InlineKeyboardMarkup()
+        user_id = message.from_user.id
+        cat = self.users['category'][user_id].decode('utf-8')
+        for sub in self.categories[cat]:
+            keyboard.row(types.InlineKeyboardButton(text=sub, callback_data=f"usub_{sub}"))
+        bot.send_message(message.chat.id, "Выберите подкатегорию:", reply_markup=keyboard)
+
+    def go_cat(self, bot, message, first=True):
+        keyboard = types.InlineKeyboardMarkup()
+        user_id = message.from_user.id
+        label_id = int(self.users['status'][user_id])
+        label_cats = json.loads(self.labels['category'][label_id].decode('utf-8'))
+        for cat, sub_list in self.categories.items():
+            for sub in sub_list:
+                pre = ""
+                if sub in label_cats:
+                    pre = "✅ "
+                keyboard.row(types.InlineKeyboardButton(text=f"{pre}{cat}: {sub}", callback_data=f"lcat_{sub}"))
+        keyboard.row(types.InlineKeyboardButton(text=f"Готово", callback_data=f"done"))
+        m_text = "Следует отметить одну или несколько подкатегорий:"
+        if first:
+            bot.send_message(message.chat.id, m_text,
+                             reply_markup=keyboard)
+        else:
+            bot.edit_message_text(message.chat.id, m_text, reply_markup=keyboard)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_LIVE'])
@@ -287,6 +370,7 @@ class Live:
         @bot.message_handler(commands=['start'])
         def start_message(message):
             bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+
             self.go_start(bot, message)
 
         # Тест вычисления расстояния специальной командой
@@ -305,73 +389,88 @@ class Live:
         # Вывод админу списка Айди пользователя с именем
         @bot.message_handler(commands=['list'])
         def list_message(message):
-            if message.chat.id in ADMIN_LIST:
-                me = "Список водителей (ID - имя - просмотры):\n"
-                for username in self.labels['name'].keys():
-                    me = me + f"{username.decode('utf-8')} - {self.labels['name'][username].decode('utf-8')}" \
-                              f" - {int(self.labels['views'][username])}\n"
+            if message.from_user.id in ADMIN_LIST:
+                me = "Список пользователей (ID - имя - последний вход):\n"
+                for user_id in self.users['name'].keys():
+                    me = me + f"{user_id.decode('utf-8')} - {self.users['name'][user_id].decode('utf-8')}" \
+                              f" - {time.ctime(int(self.users['last_login'][user_id]))}\n"
                 bot.send_message(message.chat.id, me)
 
-        # Обработка всех команд
+        # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
         def message_text(message):
-            username = message.chat.id
-            # Обработка текстовых сообщений от водителя, заполняю объявление
-            if username in self.labels['wait'] and int(self.labels['wait'][username]) == 0:
+            user_id = message.from_user.id
+
+            # Обработка текстовых сообщений от пользователя, заполняю описание
+            if int(self.users['wait'][user_id]) == 1 and int(self.users['status'][user_id]) > 0:
                 if len(message.text) <= ABOUT_LIMIT:
-                    self.labels['about'][username] = message.text
-                    self.labels['wait'][username] = -1
-                    self.go_menu_car(bot, message)
+                    label_id = int(self.users['status'][user_id])
+                    self.labels['about'][label_id] = message.text
+                    self.users['wait'][user_id] = 0
+                    self.go_menu_labels(bot, message)
                     return
                 else:
-                    bot.send_message(message.chat.id, f"Объявление слишком длинное, ограничение {ABOUT_LIMIT} символов")
-                    return
-            # Обработка текстовых сообщений от водителя, заполняю радиус
-            if username in self.labels['wait'] and int(self.labels['wait'][username]) == 1:
-                if str(message.text).isnumeric():
-                    self.labels['radius'][username] = int(message.text)
-                    self.labels['wait'][username] = -1
-                    self.go_menu_car(bot, message)
-                    return
-                else:
-                    bot.send_message(message.chat.id, "Пожалуйста, ведите число")
-                    return
-            # Обработка текстовых сообщений от водителя, заполняю цену за км
-            if username in self.labels['wait'] and int(self.labels['wait'][username]) == 2:
-                if str(message.text).isnumeric():
-                    self.labels['price'][username] = int(message.text)
-                    self.labels['wait'][username] = -1
-                    self.go_menu_car(bot, message)
-                    return
-                else:
-                    bot.send_message(message.chat.id, "Пожалуйста, ведите число")
+                    bot.send_message(message.chat.id, f"Описание слишком длинное, ограничение {ABOUT_LIMIT} символов")
                     return
 
-            # Обработка кнопки "Я водитель"
-            if message.text == self.menu_items[1]:
-                self.go_menu_car(bot, message)
+            # Обработка текстовых сообщений от пользователя, заполняю подробности
+            if int(self.users['wait'][user_id]) == 2 and int(self.users['status'][user_id]) > 0:
+                if len(message.text) <= DESCRIPTION_LIMIT:
+                    label_id = int(self.users['status'][user_id])
+                    self.labels['description'][label_id] = message.text
+                    self.users['wait'][user_id] = 0
+                    self.go_menu_labels(bot, message)
+                    return
+                else:
+                    bot.send_message(message.chat.id,
+                                     f"Подробное описание слишком длинное, ограничение {DESCRIPTION_LIMIT} символов")
                 return
-            # Обработка кнопки "Изменить объявление"
-            if message.text == self.menu_car_items[0]:
-                self.go_about(bot, message)
+
+            # Обработка текстовых сообщений от пользователя, заполняю цену
+            if int(self.users['wait'][user_id]) == 4 and int(self.users['status'][user_id]) > 0:
+                if len(message.text) <= PRICE_LIMIT:
+                    label_id = int(self.users['status'][user_id])
+                    self.labels['price'][label_id] = message.text
+                    self.users['wait'][user_id] = 0
+                    self.go_menu_labels(bot, message)
+                    return
+                else:
+                    bot.send_message(message.chat.id,
+                                     f"Описание цены слишком длинное, ограничение {PRICE_LIMIT} символов")
+                    return
+
+            # Обработка кнопки "Менеджер меток"
+            if message.text == self.menu_items[4] and int(self.users['status'][user_id]) < 0:
+                self.users['status'][user_id] = 0
+                if user_id in self.users['search']:
+                    self.users['search'].delete(user_id)
+                self.go_menu_labels(bot, message)
                 return
-            # Обработка кнопки "Изменить радиус"
-            if message.text == self.menu_car_items[1]:
-                self.go_radius(bot, message)
-                return
-            # Обработка кнопки "Изменить цену"
-            if message.text == self.menu_car_items[2]:
-                self.go_price(bot, message)
-                return
+
             # Обработка кнопки "Выход"
-            if message.text == self.menu_car_items[3]:
-                self.labels['status'][username] = -1
+            if message.text == self.menu_labels[0] and int(self.users['status'][user_id]) >= 0:
+                self.users['status'][user_id] = -1
                 self.go_start(bot, message)
                 return
-            # Обработка кнопки "Прекратить поиск"
-            if message.text == self.menu_stop and int(self.labels['status'][username]) == 1:
-                self.go_menu_car(bot, message)
+            # Обработка кнопки "Выбрать категорию"
+            if message.text == self.menu_items[2] and int(self.users['status'][user_id]) < 0:
+                if user_id in self.users['subcategory']:
+                    self.users['subcategory'].delete(user_id)
+                self.select_cat(bot, message)
                 return
+
+            # Обработка кнопки "Выбрать подкатегорию"
+            if message.text == self.menu_items[3] and int(self.users['status'][user_id]) < 0:
+                if user_id in self.users['category']:
+                    self.select_sub(bot, message)
+                    return
+
+            # Обработка кнопки "Еще"
+            if message.text == self.menu_items[0] and int(self.users['status'][user_id]) < 0:
+                self.go_search(bot, message)
+                self.go_start(bot, message)
+                return
+
             # Обработка отправления координат текстом
             if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
                 location = {'longitude': float(message.text.split(',')[0]),
@@ -391,6 +490,89 @@ class Live:
         @bot.message_handler(content_types=CONTENT_TYPES)
         def message_any(message):
             bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+
+        @bot.callback_query_handler(func=lambda call: True)
+        def callback_worker(call):
+            user_id = call.message.from_user.id
+
+            # Выбираем категорию поиска
+            if call.data[:4] == "ucat":
+                category = call.data.spit('_')[1]
+                self.users['category'][user_id] = category
+                self.go_start(bot, call.message)
+
+            # Выбираем подкатегорию поиска
+            if call.data[:4] == "usub":
+                subcategory = call.data.spit('_')[1]
+                self.users['subcategory'][user_id] = subcategory
+                self.go_start(bot, call.message)
+
+            # Показываем подробнее
+            if call.data[:4] == "show":
+                label_id = int(call.data.spit('_')[1])
+                self.send_full_label(bot, call.message, label_id)
+
+            # Посылаем геопозицию
+            if call.data[:3] == "geo":
+                label_id = int(call.data.spit('_')[1])
+                long = float(self.labels['geo_long'][label_id])
+                lat = float(self.labels['geo_lat'][label_id])
+                bot.send_location(chat_id=call.message.chat.id, longitude=long, latitude=lat)
+
+            # Меняем описание краткое
+            if call.data[:3] == "abo":
+                label_id = int(call.data.spit('_')[1])
+                self.users['status'][user_id] = label_id
+                self.go_about(bot, call.message, label_id)
+
+            # Меняем подробное описание
+            if call.data[:3] == "des":
+                label_id = int(call.data.spit('_')[1])
+                self.users['status'][user_id] = label_id
+                self.go_description(bot, call.message, label_id)
+
+            # Меняем цену
+            if call.data[:3] == "pri":
+                label_id = int(call.data.spit('_')[1])
+                self.users['status'][user_id] = label_id
+                self.go_price(bot, call.message, label_id)
+
+            # Начинаем выбор из всех подкатегорий
+            if call.data[:3] == "cat":
+                label_id = int(call.data.spit('_')[1])
+                self.users['status'][user_id] = label_id
+                self.go_cat(bot, call.message)
+
+            # Отмечена подкатегория
+            if call.data[:4] == "lcat":
+                cat = call.data.spit('_')[1]
+                label_id = int(self.users['status'][user_id])
+                categories = json.loads(self.labels['category'][label_id].decode('utf-8'))
+                if cat in categories:
+                    categories.remove(cat)
+                else:
+                    categories.append(cat)
+                self.labels['category'][label_id] = json.dumps(categories)
+                self.go_cat(bot, call.message, False)
+
+            # Категории выбраны
+            if call.data[:4] == "done":
+                bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+                self.go_menu_labels(bot, message=call.message)
+
+            # Снять с публикации
+            if call.data[:3] == "del":
+                label_id = int(call.data.spit('_')[1])
+                self.labels['status_label'].setex(label_id, 86400, 0)
+                self.go_menu_labels(bot, call.message, False)
+
+            # Опубликовать
+            if call.data[:3] == "pub":
+                label_id = int(call.data.spit('_')[1])
+                self.labels['status_label'].set(label_id, 1)
+                self.go_menu_labels(bot, call.message, False)
+
+            bot.answer_callback_query(call.id)
 
         bot.polling()
 
