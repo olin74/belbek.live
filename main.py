@@ -330,7 +330,7 @@ class Live:
                 self.go_menu_labels(bot, message)
 
         elif int(self.users['status'][user_id]) < 0:  # Поиск
-            self.users['search'] = json.dumps(self.get_search_list(message, location))
+            self.users['search'][user_id] = json.dumps(self.get_search_list(message, location))
             self.go_search(bot, message)
             self.go_start(bot, message)
 
