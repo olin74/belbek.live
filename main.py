@@ -352,6 +352,8 @@ class Live:
     def go_cat(self, bot, message, first=True):
         keyboard = types.InlineKeyboardMarkup()
         user_id = message.from_user.id
+        print(message.chat.id)
+        print(message.from_user.id)
         label_id = int(self.users['status'][user_id])
         label_cats = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
         for cat, sub_list in self.categories.items():
