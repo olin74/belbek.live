@@ -91,7 +91,7 @@ class Live:
                     self.labels[field].delete(key)
 
     # Стартовое сообщение
-    def go_start(self, bot, message):
+    def go_start(self, bot, message, is_start=True):
         user_id = message.chat.id
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
@@ -117,11 +117,13 @@ class Live:
         for label_id in self.labels['status_label'].keys():
             if int(self.labels['status_label'][label_id]) == 1:
                 active += 1
-        # f"Канал поддержки https://t.me/BelbekLive\n" \
-        menu_message = f"Объявлений опубликовано: {active}\n" \
-                       f"👍 Для поиска мест, укажите категорию, нажмите “Поиск” " \
-                       f"(определение геолокации должно быть включено)" \
-                       f" или отправьте свои координаты текстом."
+        menu_message = ""
+        if is_start:
+            menu_message = f"Объявлений опубликовано: {active}\n" \
+                           f"👍 Для поиска мест, укажите категорию, нажмите “Поиск” " \
+                           f"(определение геолокации должно быть включено)" \
+                           f" или отправьте свои координаты текстом.\n" \
+                           f"Канал поддержки https://t.me/BelbekLive"
         if user_id in self.users['category']:
             menu_message = menu_message + f"\nКатегория:{self.users['category'][user_id].decode('utf-8')}"
         if user_id in self.users['subcategory']:
@@ -332,7 +334,7 @@ class Live:
         elif int(self.users['status'][user_id]) < 0:  # Поиск
             self.users['search'][user_id] = json.dumps(self.get_search_list(message, location))
             self.go_search(bot, message)
-            self.go_start(bot, message)
+            self.go_start(bot, message, False)
 
     def select_cat(self, bot, message):
         keyboard = types.InlineKeyboardMarkup()
@@ -477,7 +479,7 @@ class Live:
             # Обработка кнопки "Еще"
             if message.text == self.menu_items[0] and int(self.users['status'][user_id]) < 0:
                 self.go_search(bot, message)
-                self.go_start(bot, message)
+                self.go_start(bot, message, False)
                 return
 
             # Обработка отправления координат текстом
@@ -519,7 +521,7 @@ class Live:
             # Показываем подробнее
             if call.data[:4] == "show":
                 label_id = int(call.data.split('_')[1])
-                if int(self.users['status'][user_id]) ==0:
+                if int(self.users['status'][user_id]) == 0:
                     self.users['status'][user_id] = label_id
                 self.send_full_label(bot, call.message, label_id)
 
