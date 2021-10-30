@@ -13,6 +13,7 @@ ABOUT_LIMIT = 100  # Лимит символов в описании
 DESCRIPTION_LIMIT = 600  # Лимит символов в подробностях
 PRICE_LIMIT = 20  # Лимит символов в цене
 LIST_STEP = 10
+TIME_OUT_USER = 30*30*24*30
 CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact",
                  "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
                  "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
@@ -45,6 +46,7 @@ class Live:
         # redis_url_events = os.environ['REDIS_URL_EVENTS']
         # redis_url = 'redis://:@localhost:6379'  # Для теста на локальном сервере
         # База данных пользователей
+        
         self.users = {'wait': redis.from_url(redis_url, db=1),
                       'status': redis.from_url(redis_url, db=2),
                       'geo_long': redis.from_url(redis_url, db=3),
@@ -71,12 +73,15 @@ class Live:
                        'author': redis.from_url(redis_url_labels, db=11),
                        'zoom': redis.from_url(redis_url_labels, db=12)
                        }
-        self.index = 0
-        for k in self.labels['status_label'].keys():
-            self.index = k
+        
         # База данных событий
         # self.events =
-
+        self.common = redis.from_url(redis_url, db=0)
+        if "index" not in self.common:
+            index = 0
+            for k in self.labels['status_label'].keys():
+                index = k
+            self.common['index'] = index
         with open("categories.json") as json_file:
             self.categories = json.load(json_file)
         self.menu_items = [f'Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
@@ -89,6 +94,16 @@ class Live:
             for key in self.labels[field].keys():
                 if key not in self.labels['status_label'].keys():
                     self.labels[field].delete(key)
+        for user_id in self.users['labels'].keys:
+            l_list = json.loads(self.users['labels'][user_id])
+            for label_id in l_list:
+                if label_id not in self.labels['status_label'].keys():
+                    l_list.remove(label_id)
+            self.users['labels'][user_id] = json.dumps(l_list)
+        for label_id in self.labels['status_label'].keys():
+            user_id = int(self.labels['author'][label_id])
+            if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
+                self.labels['status_label'][label_id] = 0
 
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
@@ -110,6 +125,7 @@ class Live:
         # Сброс статуса и ожидания ввода текста
         self.users['status'][user_id] = -1
         self.users['wait'][user_id] = 0
+        self.users['last_login'][user_id] = int(time.time())
         if user_id not in self.users['labels']:
             self.users['labels'][user_id] = '[]'
         # Подсчет статистики
@@ -125,9 +141,9 @@ class Live:
                            f" или отправьте свои координаты текстом.\n" \
                            f"Канал поддержки https://t.me/BelbekLive"
         if user_id in self.users['category']:
-            menu_message = menu_message + f"\nКатегория:{self.users['category'][user_id].decode('utf-8')}"
+            menu_message = menu_message + f"\nКатегория: {self.users['category'][user_id].decode('utf-8')}"
         if user_id in self.users['subcategory']:
-            menu_message = menu_message + f"\nПодкатегория:{self.users['subcategory'][user_id].decode('utf-8')}"
+            menu_message = menu_message + f"\nПодкатегория: {self.users['subcategory'][user_id].decode('utf-8')}"
         bot.send_message(message.chat.id, menu_message, reply_markup=menu_keyboard, disable_web_page_preview=True)
 
     # Запрос объявления
@@ -165,7 +181,7 @@ class Live:
                          reply_markup=keyboard)
         return
 
-        # Послать краткую метку
+    # Послать краткую метку
     def send_label(self, bot, message, label_id):
         keyboard = types.InlineKeyboardMarkup()
         label_text = f"Описание: {self.labels['about'][label_id].decode('utf-8')}"
@@ -176,7 +192,19 @@ class Live:
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
         return
 
-        # Послать полную метку
+    # Выявить перекресные категории
+    def uni_cat(self, c_list, user_id):
+        l_list = json.loads(self.users['labels'][user_id].decode('utf-8'))
+        cross_cat = []
+        for label_id in l_list:
+            if int(self.labels['status_label']) == 1:
+                cat_list = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
+                for cat in cat_list:
+                    if cat in c_list:
+                        cross_cat.append(cat)
+        return cross_cat
+
+    # Послать полную метку
     def send_full_label(self, bot, message, label_id):
 
         if label_id not in self.labels['about']:
@@ -199,6 +227,10 @@ class Live:
         label_text = label_text + f"\nПодкатегории: {','.join(c_list)}"
         label_text = label_text + f"\nПросмотров: {int(self.labels['views'][label_id])}"
         label_text = label_text + f"\n@{self.labels['author'][label_id].decode('utf-8')}"
+        cross = self.uni_cat(c_list, user_id)
+        if len(cross) > 0:
+            label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
+                                      f" (Ваши объявления уже есть здесь: {','.join(cross)})"
         button_list = []
         if int(self.users['status'][user_id]) < 0:
             button_list.append(types.InlineKeyboardButton(text="Выслать координаты", callback_data=f"geo_{label_id}"))
@@ -208,7 +240,8 @@ class Live:
             button_list.append(types.InlineKeyboardButton(text="Изменить цену", callback_data=f"pri_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить категорию", callback_data=f"cat_{label_id}"))
             if int(self.labels['status_label'][label_id]) == 0:
-                button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
+                if len(cross) == 0:
+                    button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
             if int(self.labels['status_label'][label_id]) == 1:
                 button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
         keyboard.add(*button_list)
@@ -318,15 +351,16 @@ class Live:
         if int(self.users['status'][user_id]) == 0:  # Создать метку
             if user_id in self.users['username']:
                 # Создаём метку
-                self.index += 1
-                self.labels['status_label'].setex(self.index, 86400, 0)
-                self.labels['views'][self.index] = 0
-                self.labels['geo_long'][self.index] = location['longitude']
-                self.labels['geo_lat'][self.index] = location['latitude']
-                self.labels['author'][self.index] = self.users['username'][user_id].decode('utf-8')
-                self.users['status'][user_id] = self.index
+                index = int(self.common['index']) + 1
+                self.common['index'] = index
+                self.labels['status_label'].setex(index, 86400, 0)
+                self.labels['views'][index] = 0
+                self.labels['geo_long'][index] = location['longitude']
+                self.labels['geo_lat'][index] = location['latitude']
+                self.labels['author'][index] = self.users['username'][user_id].decode('utf-8')
+                self.users['status'][user_id] = index
                 user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
-                user_labels.append(self.index)
+                user_labels.append(index)
                 self.users['labels'][user_id] = json.dumps(user_labels)
 
                 self.go_menu_labels(bot, message)
@@ -461,6 +495,10 @@ class Live:
             # Обработка кнопки "Выход"
             if message.text == self.menu_labels[0] and int(self.users['status'][user_id]) >= 0:
                 self.users['status'][user_id] = -1
+                if user_id in self.users['category']:
+                    self.users['category'].delete(user_id)
+                if user_id in self.users['subcategory']:
+                    self.users['subcategory'].delete(user_id)
                 self.go_start(bot, message)
                 return
             # Обработка кнопки "Выбрать категорию"
