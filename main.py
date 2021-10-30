@@ -99,7 +99,7 @@ class Live:
                 if key not in self.labels['status_label'].keys():
                     self.labels[field].delete(key)
         for user_id in self.users['labels'].keys:
-            l_list = json.loads(self.users['labels'][user_id])
+            l_list = json.loads(self.users['labels'][user_id].decode('utf-8'))
             for label_id in l_list:
                 if label_id not in self.labels['status_label'].keys():
                     l_list.remove(label_id)
