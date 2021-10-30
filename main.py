@@ -105,16 +105,14 @@ class Live:
                     l_list.remove(label_id)
             self.users['labels'][user_id] = json.dumps(l_list)
         for label_id in self.labels['status_label'].keys():
-            try:
-                user_id = int(self.labels['author'][label_id])
-                if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
-                    self.labels['status_label'][label_id] = 0
-            except:
-                self.labels['author'].delete(label_id)
+            user_id = int(self.labels['author'][label_id])
+            if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
+                self.labels['status_label'][label_id] = 0
 
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
         user_id = message.chat.id
+        self.labels['author'][1] = user_id
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
         first_row = []
