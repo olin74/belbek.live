@@ -502,55 +502,55 @@ class Live:
 
             # Выбираем категорию поиска
             if call.data[:4] == "ucat":
-                category = call.data.spit('_')[1]
+                category = call.data.split('_')[1]
                 self.users['category'][user_id] = category
                 self.go_start(bot, call.message)
 
             # Выбираем подкатегорию поиска
             if call.data[:4] == "usub":
-                subcategory = call.data.spit('_')[1]
+                subcategory = call.data.split('_')[1]
                 self.users['subcategory'][user_id] = subcategory
                 self.go_start(bot, call.message)
 
             # Показываем подробнее
             if call.data[:4] == "show":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.send_full_label(bot, call.message, label_id)
 
             # Посылаем геопозицию
             if call.data[:3] == "geo":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 long = float(self.labels['geo_long'][label_id])
                 lat = float(self.labels['geo_lat'][label_id])
                 bot.send_location(chat_id=call.message.chat.id, longitude=long, latitude=lat)
 
             # Меняем описание краткое
             if call.data[:3] == "abo":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.users['status'][user_id] = label_id
                 self.go_about(bot, call.message, label_id)
 
             # Меняем подробное описание
             if call.data[:3] == "des":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.users['status'][user_id] = label_id
                 self.go_description(bot, call.message, label_id)
 
             # Меняем цену
             if call.data[:3] == "pri":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.users['status'][user_id] = label_id
                 self.go_price(bot, call.message, label_id)
 
             # Начинаем выбор из всех подкатегорий
             if call.data[:3] == "cat":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.users['status'][user_id] = label_id
                 self.go_cat(bot, call.message)
 
             # Отмечена подкатегория
             if call.data[:4] == "lcat":
-                cat = call.data.spit('_')[1]
+                cat = call.data.split('_')[1]
                 label_id = int(self.users['status'][user_id])
                 categories = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
                 if cat in categories:
@@ -567,13 +567,13 @@ class Live:
 
             # Снять с публикации
             if call.data[:3] == "del":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.labels['status_label'].setex(label_id, 86400, 0)
                 self.go_menu_labels(bot, call.message, False)
 
             # Опубликовать
             if call.data[:3] == "pub":
-                label_id = int(call.data.spit('_')[1])
+                label_id = int(call.data.split('_')[1])
                 self.labels['status_label'].set(label_id, 1)
                 self.go_menu_labels(bot, call.message, False)
 
