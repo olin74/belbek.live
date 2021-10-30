@@ -87,7 +87,7 @@ class Live:
         # Чистка базы
         for field in self.labels:
             for key in self.labels[field].keys():
-                if key not in self.labels['status'].keys():
+                if key not in self.labels['status_label'].keys():
                     self.labels[field].delete(key)
 
     # Стартовое сообщение
@@ -230,14 +230,12 @@ class Live:
 
         if label_id > 0:
             self.send_full_label(bot, message, label_id)
-            if int(self.users['wait'][user_id] )>0:
+            if int(self.users['wait'][user_id]) > 0:
                 return
         else:
             user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
             for user_label_id in user_labels:
                 self.send_label(bot, message, user_label_id)
-
-
 
         keyboard_row = [types.KeyboardButton(text=self.menu_labels[0])]
         # Если задан username то покажем кнопку
@@ -261,7 +259,7 @@ class Live:
         for label_id in self.labels['status_label'].keys():
 
             # Нам нужны только опубликованые
-            if int(self.labels['status'][label_id]) == 1:
+            if int(self.labels['status_label'][label_id]) == 1:
                 # Вычисляем расстояние до метки
                 user_subcategories = []
                 if user_id in self.users['category']:
@@ -291,7 +289,6 @@ class Live:
     # Вывод поисковых результатов
     def go_search(self, bot, message):
         user_id = message.from_user.id
-        print(self.users['search'][user_id].decode('utf-8'))
         s_list = json.loads(self.users['search'][user_id].decode('utf-8'))
         s_len = len(s_list)
         if s_len == 0:
