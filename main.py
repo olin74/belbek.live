@@ -285,8 +285,9 @@ class Live:
                                     float(self.labels['geo_lat'][label_id]))
                 # Если водитель рядом, то добавляем в результирующий список
                 geo[label_id] = dist
-
-        return sorted(geo, key=geo.get)
+        sorted_list = sorted(geo, key=geo.get)
+        print(sorted_list)
+        return sorted_list
 
     # Вывод поисковых результатов
     def go_search(self, bot, message):
