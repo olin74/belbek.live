@@ -519,7 +519,8 @@ class Live:
             # Показываем подробнее
             if call.data[:4] == "show":
                 label_id = int(call.data.split('_')[1])
-                self.users['status'][user_id] = label_id
+                if int(self.users['status'][user_id]) ==0:
+                    self.users['status'][user_id] = label_id
                 self.send_full_label(bot, call.message, label_id)
 
             # Посылаем геопозицию
