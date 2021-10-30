@@ -112,8 +112,8 @@ class Live:
         self.users['wait'][user_id] = 0
         # Подсчет статистики
         active = 0
-        for label_id in self.labels['status_labels'].keys():
-            if int(self.labels['status_labels'][label_id]) == 1:
+        for label_id in self.labels['status_label'].keys():
+            if int(self.labels['status_label'][label_id]) == 1:
                 active += 1
         # f"Канал поддержки https://t.me/BelbekLive\n" \
         menu_message = f"Объявлений опубликовано: {active}\n" \
