@@ -209,7 +209,7 @@ class Live:
                 button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
             if int(self.labels['status_label'][label_id]) == 1:
                 button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
-        keyboard.add(button_list)
+        keyboard.add(*button_list)
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
 
     # Меню менеджера меток
