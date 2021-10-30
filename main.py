@@ -76,7 +76,9 @@ class Live:
             self.index = k
         # База данных событий
         # self.events =
-        self.categories = json.loads("categories.json")
+
+        with open("categories.json") as json_file:
+            self.categories = json.load(json_file)
         self.menu_items = [f'Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
                            'Менеджер объявлений']
         self.menu_labels = ['Выход', "✳️ Создать метку ✳️"]
