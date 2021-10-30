@@ -183,7 +183,7 @@ class Live:
         if label_id not in self.labels['subcategory']:
             self.go_cat(bot, message, label_id)
             return
-        c_list = json.loads(self.users['category'][label_id].decode('utf-8'))
+        c_list = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
         if len(c_list) == 0:
             self.go_cat(bot, message, label_id)
             return
