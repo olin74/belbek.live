@@ -176,7 +176,8 @@ class Live:
 
         # Послать полную метку
     def send_full_label(self, bot, message, label_id):
-        if label_id not in self.labels['description']:
+
+        if label_id not in self.labels['about']:
             self.go_about(bot, message, label_id)
             return
         if label_id not in self.labels['category']:
