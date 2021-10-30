@@ -104,6 +104,7 @@ class Live:
                 if label_id not in self.labels['status_label'].keys():
                     l_list.remove(label_id)
             self.users['labels'][user_id] = json.dumps(l_list)
+        self.labels['author'][1] = 665812965
         for label_id in self.labels['status_label'].keys():
             user_id = int(self.labels['author'][label_id])
             if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
@@ -112,7 +113,7 @@ class Live:
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
         user_id = message.chat.id
-        self.labels['author'][b'1'] = user_id
+
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
         first_row = []
