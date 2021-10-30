@@ -180,7 +180,7 @@ class Live:
         if label_id not in self.labels['about']:
             self.go_about(bot, message, label_id)
             return
-        if label_id not in self.labels['category']:
+        if label_id not in self.labels['subcategory']:
             self.go_cat(bot, message, label_id)
             return
         c_list = json.loads(self.users['category'][label_id].decode('utf-8'))
@@ -353,7 +353,7 @@ class Live:
         keyboard = types.InlineKeyboardMarkup()
         user_id = message.from_user.id
         label_id = int(self.users['status'][user_id])
-        label_cats = json.loads(self.labels['category'][label_id].decode('utf-8'))
+        label_cats = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
         for cat, sub_list in self.categories.items():
             for sub in sub_list:
                 pre = ""
@@ -552,12 +552,12 @@ class Live:
             if call.data[:4] == "lcat":
                 cat = call.data.spit('_')[1]
                 label_id = int(self.users['status'][user_id])
-                categories = json.loads(self.labels['category'][label_id].decode('utf-8'))
+                categories = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
                 if cat in categories:
                     categories.remove(cat)
                 else:
                     categories.append(cat)
-                self.labels['category'][label_id] = json.dumps(categories)
+                self.labels['subcategory'][label_id] = json.dumps(categories)
                 self.go_cat(bot, call.message, False)
 
             # Категории выбраны
