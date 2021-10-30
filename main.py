@@ -105,9 +105,12 @@ class Live:
                     l_list.remove(label_id)
             self.users['labels'][user_id] = json.dumps(l_list)
         for label_id in self.labels['status_label'].keys():
-            user_id = int(self.labels['author'][label_id])
-            if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
-                self.labels['status_label'][label_id] = 0
+            try:
+                user_id = int(self.labels['author'][label_id])
+                if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
+                    self.labels['status_label'][label_id] = 0
+            except:
+                self.labels['author'].delete(label_id)
 
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
@@ -191,7 +194,9 @@ class Live:
         label_text = f"Описание: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
             label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
-        label_text = label_text + f"\n@{self.labels['author'][label_id].decode('utf-8')}"
+        a_id = int(self.labels['author'][label_id])
+        username = self.users['username'][a_id].decode('utf-8')
+        label_text = label_text + f"\n@{username}"
         keyboard.add(types.InlineKeyboardButton(text="Подробнее", callback_data=f"show_{label_id}"))
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
         return
@@ -230,7 +235,9 @@ class Live:
             label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
         label_text = label_text + f"\nПодкатегории: {','.join(c_list)}"
         label_text = label_text + f"\nПросмотров: {int(self.labels['views'][label_id])}"
-        label_text = label_text + f"\n@{self.labels['author'][label_id].decode('utf-8')}"
+        a_id = int(self.labels['author'][label_id])
+        username = self.users['username'][a_id].decode('utf-8')
+        label_text = label_text + f"\n@{username}"
         cross = self.uni_cat(c_list, user_id)
         if len(cross) > 0:
             label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
@@ -361,7 +368,7 @@ class Live:
                 self.labels['views'][index] = 0
                 self.labels['geo_long'][index] = location['longitude']
                 self.labels['geo_lat'][index] = location['latitude']
-                self.labels['author'][index] = self.users['username'][user_id].decode('utf-8')
+                self.labels['author'][index] = user_id
                 self.users['status'][user_id] = index
                 user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
                 user_labels.append(index)
