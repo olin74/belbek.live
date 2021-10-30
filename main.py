@@ -104,7 +104,6 @@ class Live:
                 if label_id not in self.labels['status_label'].keys():
                     l_list.remove(label_id)
             self.users['labels'][user_id] = json.dumps(l_list)
-        self.labels['author'][1] = 665812965
         for label_id in self.labels['status_label'].keys():
             user_id = int(self.labels['author'][label_id])
             if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
@@ -205,7 +204,7 @@ class Live:
         l_list = json.loads(self.users['labels'][user_id].decode('utf-8'))
         cross_cat = []
         for label_id in l_list:
-            if int(self.labels['status_label']) == 1:
+            if int(self.labels['status_label'][label_id]) == 1:
                 cat_list = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
                 for cat in cat_list:
                     if cat in c_list:
