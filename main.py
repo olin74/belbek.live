@@ -92,7 +92,7 @@ class Live:
 
     # Стартовое сообщение
     def go_start(self, bot, message):
-        user_id = message.from_user.id
+        user_id = message.chat.id
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
         first_row = []
@@ -131,7 +131,7 @@ class Live:
     # Запрос объявления
     def go_about(self, bot, message, label_id):
         keyboard = types.ReplyKeyboardRemove()
-        user_id = message.from_user.id
+        user_id = message.chat.id
         # Устанавливаем ожидание текстового ответа для поля "объявление"
         self.users['wait'][user_id] = 1
         self.users['status'][user_id] = label_id
@@ -143,7 +143,7 @@ class Live:
     # Запрос подробностей
     def go_description(self, bot, message, label_id):
         keyboard = types.ReplyKeyboardRemove()
-        user_id = message.from_user.id
+        user_id = message.chat.id
         # Устанавливаем ожидание текстового ответа для поля "подробности"
         self.users['wait'][user_id] = 2
         self.users['status'][user_id] = label_id
@@ -154,7 +154,7 @@ class Live:
     # Запрос цены
     def go_price(self, bot, message, label_id):
         keyboard = types.ReplyKeyboardRemove()
-        user_id = message.from_user.id
+        user_id = message.chat.id
         # Устанавливаем ожидание текстового ответа для поля "цена"
         self.users['wait'][user_id] = 4
         self.users['status'][user_id] = label_id
@@ -188,7 +188,7 @@ class Live:
             self.go_cat(bot, message, label_id)
             return
         keyboard = types.InlineKeyboardMarkup(row_width=2)
-        user_id = message.from_user.id
+        user_id = message.chat.id
         label_text = f"\nОписание: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['description']:
             label_text = label_text + f"\nПодробности: {self.labels['description'][label_id].decode('utf-8')}"
@@ -214,7 +214,7 @@ class Live:
 
     # Меню менеджера меток
     def go_menu_labels(self, bot, message, first=True):
-        user_id = message.from_user.id
+        user_id = message.chat.id
         menu_label_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
         label_id = int(self.users['status'][user_id])
@@ -254,7 +254,7 @@ class Live:
 
     # Формирование списка поиска
     def get_search_list(self, message, location):
-        user_id = message.from_user.id
+        user_id = message.chat.id
         # Перебираем все метки
         geo = {}
         for label_id in self.labels['status_label'].keys():
@@ -289,7 +289,7 @@ class Live:
 
     # Вывод поисковых результатов
     def go_search(self, bot, message):
-        user_id = message.from_user.id
+        user_id = message.chat.id
         s_list = json.loads(self.users['search'][user_id].decode('utf-8'))
         s_len = len(s_list)
         if s_len == 0:
@@ -310,7 +310,7 @@ class Live:
 
     # Получены координаты тем или иным образом
     def go_location(self, bot, message, location):
-        user_id = message.from_user.id
+        user_id = message.chat.id
         # Определение того что делать, искать или создать метку
         if int(self.users['status'][user_id]) == 0:  # Создать метку
             if user_id in self.users['username']:
@@ -343,7 +343,7 @@ class Live:
 
     def select_sub(self, bot, message):
         keyboard = types.InlineKeyboardMarkup()
-        user_id = message.from_user.id
+        user_id = message.chat.id
         cat = self.users['category'][user_id].decode('utf-8')
         for sub in self.categories[cat]:
             keyboard.row(types.InlineKeyboardButton(text=sub, callback_data=f"usub_{sub}"))
@@ -351,9 +351,7 @@ class Live:
 
     def go_cat(self, bot, message, first=True):
         keyboard = types.InlineKeyboardMarkup()
-        user_id = message.from_user.id
-        print(message.chat.id)
-        print(message.from_user.id)
+        user_id = message.chat.id
         label_id = int(self.users['status'][user_id])
         label_cats = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
         for cat, sub_list in self.categories.items():
@@ -396,7 +394,7 @@ class Live:
         # Вывод админу списка Айди пользователя с именем
         @bot.message_handler(commands=['list'])
         def list_message(message):
-            if message.from_user.id in ADMIN_LIST:
+            if message.chat.id in ADMIN_LIST:
                 me = "Список пользователей (ID - имя - последний вход):\n"
                 for user_id in self.users['name'].keys():
                     me = me + f"{user_id.decode('utf-8')} - {self.users['name'][user_id].decode('utf-8')}" \
@@ -406,7 +404,7 @@ class Live:
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
         def message_text(message):
-            user_id = message.from_user.id
+            user_id = message.chat.id
 
             # Обработка текстовых сообщений от пользователя, заполняю описание
             if int(self.users['wait'][user_id]) == 1 and int(self.users['status'][user_id]) > 0:
@@ -500,7 +498,7 @@ class Live:
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
-            user_id = call.message.from_user.id
+            user_id = call.message.chat.id
 
             # Выбираем категорию поиска
             if call.data[:4] == "ucat":
