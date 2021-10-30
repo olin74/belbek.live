@@ -99,14 +99,14 @@ class Live:
         if user_id in self.users['search']:
             first_row.append(types.KeyboardButton(text=self.menu_items[0]))
         first_row.append(types.KeyboardButton(text=self.menu_items[1], request_location=True))
-        menu_keyboard.row(first_row)
+        menu_keyboard.row(button for button in first_row)
 
         second_row = [types.KeyboardButton(text=self.menu_items[2])]
         if user_id in self.users['category']:
             first_row.append(types.KeyboardButton(text=self.menu_items[3]))
 
         second_row.append(types.KeyboardButton(text=self.menu_items[4]))
-        menu_keyboard.row(second_row)
+        menu_keyboard.row(button for button in second_row)
         # Сброс статуса и ожидания ввода текста
         self.users['status'][user_id] = -1
         self.users['wait'][user_id] = 0
@@ -242,7 +242,7 @@ class Live:
             menu_label_text = f"Для создания метки там, где вы находитесь нажмите “Создать метку” или " \
                               f"отправьте координаты текстом."
 
-        menu_label_keyboard.row(keyboard_row)
+        menu_label_keyboard.row(button for button in keyboard_row)
         if first:
             bot.send_message(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
         else:
