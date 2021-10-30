@@ -103,7 +103,7 @@ class Live:
 
         second_row = [types.KeyboardButton(text=self.menu_items[2])]
         if user_id in self.users['category']:
-            first_row.append(types.KeyboardButton(text=self.menu_items[3]))
+            second_row.append(types.KeyboardButton(text=self.menu_items[3]))
 
         second_row.append(types.KeyboardButton(text=self.menu_items[4]))
         menu_keyboard.row(*second_row)
@@ -166,7 +166,7 @@ class Live:
         # Послать краткую метку
     def send_label(self, bot, message, label_id):
         keyboard = types.InlineKeyboardMarkup()
-        label_text = f"{label_id}\nОписание: {self.labels['about'][label_id].decode('utf-8')}"
+        label_text = f"Описание: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
             label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
         label_text = label_text + f"\n@{self.labels['author'][label_id].decode('utf-8')}"
@@ -189,7 +189,7 @@ class Live:
             return
         keyboard = types.InlineKeyboardMarkup(row_width=2)
         user_id = message.chat.id
-        label_text = f"\nОписание: {self.labels['about'][label_id].decode('utf-8')}"
+        label_text = f"№{label_id} Описание: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['description']:
             label_text = label_text + f"\nПодробности: {self.labels['description'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
@@ -519,6 +519,7 @@ class Live:
             # Показываем подробнее
             if call.data[:4] == "show":
                 label_id = int(call.data.split('_')[1])
+                self.users['status'][user_id] = label_id
                 self.send_full_label(bot, call.message, label_id)
 
             # Посылаем геопозицию
