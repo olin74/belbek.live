@@ -250,7 +250,8 @@ class Live:
         if first:
             bot.send_message(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
         else:
-            bot.edit_message_text(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
+            bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id,
+                                  text=menu_label_text, reply_markup=menu_label_keyboard)
 
     # Формирование списка поиска
     def get_search_list(self, message, location):
@@ -368,7 +369,8 @@ class Live:
             bot.send_message(message.chat.id, m_text,
                              reply_markup=keyboard)
         else:
-            bot.edit_message_text(message.chat.id, m_text, reply_markup=keyboard)
+            bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id,
+                                  text=m_text, reply_markup=keyboard)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_LIVE'])
