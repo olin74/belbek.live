@@ -111,7 +111,7 @@ class Live:
         self.users['status'][user_id] = -1
         self.users['wait'][user_id] = 0
         if user_id not in self.users['labels']:
-            self.users['labels'][user_id]= '[]'
+            self.users['labels'][user_id] = '[]'
         # Подсчет статистики
         active = 0
         for label_id in self.labels['status_label'].keys():
@@ -217,14 +217,6 @@ class Live:
         menu_label_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
         label_id = int(self.users['status'][user_id])
-
-        if label_id > 0:
-            self.send_full_label(bot, message, label_id)
-        else:
-            user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
-            for user_label_id in user_labels:
-                self.send_label(bot, message, user_label_id)
-
         # Сохраним username пользователя, если есть
         if message.chat.username is not None:
             self.users['username'][user_id] = message.chat.username
@@ -235,6 +227,17 @@ class Live:
         if message.chat.last_name is not None:
             name = name + " " + message.chat.last_name
         self.users['name'][user_id] = name
+
+        if label_id > 0:
+            self.send_full_label(bot, message, label_id)
+            if int(self.users['wait'][user_id] )>0:
+                return
+        else:
+            user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
+            for user_label_id in user_labels:
+                self.send_label(bot, message, user_label_id)
+
+
 
         keyboard_row = [types.KeyboardButton(text=self.menu_labels[0])]
         # Если задан username то покажем кнопку
