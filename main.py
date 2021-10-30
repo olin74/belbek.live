@@ -1,3 +1,7 @@
+# coder: Olin (telegram: @whitejoe)
+# use for free
+# donate bitcoin: 1MFy9M3g6nxFeg8X1GDYabMtYaiuRcYJPT
+
 import json
 import math
 import redis
@@ -12,8 +16,8 @@ ADMIN_LIST = [665812965]  # Список админов для спец кома
 ABOUT_LIMIT = 100  # Лимит символов в описании
 DESCRIPTION_LIMIT = 600  # Лимит символов в подробностях
 PRICE_LIMIT = 20  # Лимит символов в цене
-LIST_STEP = 10
-TIME_OUT_USER = 30*30*24*30
+LIST_STEP = 10  # Результатов поиска за 1 раз
+TIME_OUT_USER = 30*30*24*30  # Время отсутствия активности пользователя перед удалением его меток
 CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact",
                  "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
                  "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
