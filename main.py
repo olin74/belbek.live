@@ -267,7 +267,7 @@ class Live:
                 if user_id in self.users['category']:
                     user_category = self.users['category'][user_id].decode('utf-8')
                     user_subcategories = self.categories[user_category]
-                    if user_id in self.users['subcategory'][user_id]:
+                    if user_id in self.users['subcategory']:
                         user_subcategory = self.users['subcategory'][user_id].decode('utf-8')
                         user_subcategories = [user_subcategory]
                 if len(user_subcategories) > 0:
