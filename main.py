@@ -112,7 +112,7 @@ class Live:
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
         user_id = message.chat.id
-        self.labels['author'][1] = user_id
+        self.labels['author'][b'1'] = user_id
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
         first_row = []
