@@ -110,6 +110,8 @@ class Live:
         # Сброс статуса и ожидания ввода текста
         self.users['status'][user_id] = -1
         self.users['wait'][user_id] = 0
+        if user_id not in self.users['labels']:
+            self.users['labels'][user_id]= '[]'
         # Подсчет статистики
         active = 0
         for label_id in self.labels['status_label'].keys():
