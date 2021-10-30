@@ -353,6 +353,8 @@ class Live:
         keyboard = types.InlineKeyboardMarkup()
         user_id = message.chat.id
         label_id = int(self.users['status'][user_id])
+        if label_id not in self.labels['subcategory']:
+            self.labels['subcategory'][label_id] = '[]'
         label_cats = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
         for cat, sub_list in self.categories.items():
             for sub in sub_list:
