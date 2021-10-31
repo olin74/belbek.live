@@ -17,7 +17,7 @@ ABOUT_LIMIT = 100  # Лимит символов в описании
 DESCRIPTION_LIMIT = 600  # Лимит символов в подробностях
 PRICE_LIMIT = 20  # Лимит символов в цене
 LIST_STEP = 10  # Результатов поиска за 1 раз
-TIME_OUT_USER = 30*30*24*30  # Время отсутствия активности пользователя перед удалением его меток
+TIME_OUT_USER = 30 * 30 * 24 * 30  # Время отсутствия активности пользователя перед удалением его меток
 CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact",
                  "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
                  "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
@@ -50,7 +50,7 @@ class Live:
         # redis_url_events = os.environ['REDIS_URL_EVENTS']
         # redis_url = 'redis://:@localhost:6379'  # Для теста на локальном сервере
         # База данных пользователей
-        
+
         self.users = {'wait': redis.from_url(redis_url, db=1),
                       'status': redis.from_url(redis_url, db=2),
                       'geo_long': redis.from_url(redis_url, db=3),
@@ -60,7 +60,7 @@ class Live:
                       'name': redis.from_url(redis_url, db=7),
                       'username': redis.from_url(redis_url, db=8),
                       'search': redis.from_url(redis_url, db=9),
-                      'labels': redis.from_url(redis_url, db=10),
+                      # 'labels': redis.from_url(redis_url, db=10),
                       'last_login': redis.from_url(redis_url, db=11)
                       }
         # База данных меток
@@ -77,7 +77,7 @@ class Live:
                        'author': redis.from_url(redis_url_labels, db=11),
                        'zoom': redis.from_url(redis_url_labels, db=12)
                        }
-        
+
         # База данных событий
         # self.events =
         self.common = redis.from_url(redis_url, db=0)
@@ -98,12 +98,6 @@ class Live:
             for key in self.labels[field].keys():
                 if key not in self.labels['status_label'].keys():
                     self.labels[field].delete(key)
-        for user_id in self.users['labels'].keys():
-            l_list = json.loads(self.users['labels'][user_id].decode('utf-8'))
-            for label_id in l_list:
-                if label_id not in self.labels['status_label'].keys():
-                    l_list.remove(label_id)
-            self.users['labels'][user_id] = json.dumps(l_list)
         for label_id in self.labels['status_label'].keys():
             user_id = int(self.labels['author'][label_id])
             if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
@@ -131,8 +125,6 @@ class Live:
         self.users['status'][user_id] = -1
         self.users['wait'][user_id] = 0
         self.users['last_login'][user_id] = int(time.time())
-        if user_id not in self.users['labels']:
-            self.users['labels'][user_id] = '[]'
         # Подсчет статистики
         active = 0
         for label_id in self.labels['status_label'].keys():
@@ -199,9 +191,16 @@ class Live:
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
         return
 
+    def my_list(self, user_id):
+        result = []
+        for label_id, author_id in self.labels['author'].items():
+            if user_id == author_id:
+                result.append(label_id)
+        return result
+
     # Выявить перекресные категории
     def uni_cat(self, c_list, user_id):
-        l_list = json.loads(self.users['labels'][user_id].decode('utf-8'))
+        l_list = self.my_list(user_id)
         cross_cat = []
         for label_id in l_list:
             if int(self.labels['status_label'][label_id]) == 1:
@@ -241,7 +240,7 @@ class Live:
             label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
                                       f" (Ваши объявления уже есть здесь: {','.join(cross)})"
         button_list = []
-        if int(self.users['status'][user_id]) < 0:
+        if int(self.users['status'][user_id]) < 0 or self.labels['author'] != user_id:
             button_list.append(types.InlineKeyboardButton(text="Выслать координаты", callback_data=f"geo_{label_id}"))
         else:
             button_list.append(types.InlineKeyboardButton(text="Изменить описание", callback_data=f"abo_{label_id}"))
@@ -278,7 +277,7 @@ class Live:
             if int(self.users['wait'][user_id]) > 0:
                 return
         else:
-            user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
+            user_labels = self.my_list(user_id)
             for user_label_id in user_labels:
                 self.send_label(bot, message, user_label_id)
 
@@ -368,10 +367,6 @@ class Live:
                 self.labels['geo_lat'][index] = location['latitude']
                 self.labels['author'][index] = user_id
                 self.users['status'][user_id] = index
-                user_labels = json.loads(self.users['labels'][user_id].decode('utf-8'))
-                user_labels.append(index)
-                self.users['labels'][user_id] = json.dumps(user_labels)
-
                 self.go_menu_labels(bot, message)
 
         elif int(self.users['status'][user_id]) < 0:  # Поиск
