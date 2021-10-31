@@ -553,7 +553,8 @@ class Live:
                 bot.send_message(message.chat.id, wtf_label)
                 return
 
-            if message.text == self.menu_labels[1]:
+            # Обработка кнопки "Мои метки"
+            if message.text == self.menu_labels[2]:
                 self.my_labels(bot, message)
                 return
 
