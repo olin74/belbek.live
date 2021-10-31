@@ -247,6 +247,8 @@ class Live:
         username = self.users['username'][a_id].decode('utf-8')
         label_text = label_text + f"\n@{username}"
         cross = self.uni_cat(c_list, user_id)
+        if len(cross) > 0 and int(self.labels['status_label'][label_id]) == 1:
+            self.labels['status_label'][label_id] = 0
         button_list = []
         if int(self.users['status'][user_id]) < 0 or int(self.labels['author'][label_id]) != user_id:
             button_list.append(types.InlineKeyboardButton(text="Показать на карте", callback_data=f"geo_{label_id}"))
