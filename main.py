@@ -193,7 +193,7 @@ class Live:
         username = self.users['username'][a_id].decode('utf-8')
         if dist is not None:
             dist_km = dist / 1000
-            label_text = label_text + f"\nРасстояние: {dist_km:.3f} км"
+            label_text = label_text + f"\nРасстояние: {dist_km:.2f} км"
         label_text = label_text + f"\nСвязь: @{username}"
         keyboard.add(types.InlineKeyboardButton(text="Подробнее", callback_data=f"show_{label_id}"))
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
@@ -353,7 +353,7 @@ class Live:
         if s_len == 0:
             m_text = "Ничего не найдено! Этот раздел еще не начал наполняться."
         else:
-            m_text = f"Найдено меток: {s_len}"
+            m_text = f"Найдено меток: {s_len // 2}"
         bot.send_message(message.chat.id, m_text)
         for i in range(LIST_STEP):
             if len(s_list) == 0:
