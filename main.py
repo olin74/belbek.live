@@ -193,8 +193,8 @@ class Live:
 
     def my_list(self, user_id):
         result = []
-        for label_id, author_id in self.labels['author'].items():
-            if int(user_id) == int(author_id):
+        for label_id in self.labels['author'].keys():
+            if int(user_id) == int(self.labels['author'][label_id]):
                 result.append(label_id)
         return result
 
@@ -393,6 +393,7 @@ class Live:
     def go_cat(self, bot, message, first=True):
         keyboard = types.InlineKeyboardMarkup()
         user_id = message.chat.id
+        self.users['wait'][user_id] = 5
         label_id = int(self.users['status'][user_id])
         if label_id not in self.labels['subcategory']:
             self.labels['subcategory'][label_id] = '[]'
@@ -499,6 +500,7 @@ class Live:
             # Обработка кнопки "Выход"
             if message.text == self.menu_labels[0] and int(self.users['status'][user_id]) >= 0:
                 self.users['status'][user_id] = -1
+                self.users['wait'][user_id] = 0
                 if user_id in self.users['category']:
                     self.users['category'].delete(user_id)
                 if user_id in self.users['subcategory']:
@@ -615,6 +617,7 @@ class Live:
 
             # Категории выбраны
             if call.data[:4] == "done":
+                self.users['wait'][user_id] = 0
                 bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
                 self.go_menu_labels(bot, message=call.message)
 
