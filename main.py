@@ -184,14 +184,17 @@ class Live:
         return
 
     # Послать краткую метку
-    def send_label(self, bot, message, label_id):
+    def send_label(self, bot, message, label_id, dist = None):
         keyboard = types.InlineKeyboardMarkup()
         label_text = f"Описание: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
             label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
-        label_text = label_text + f"\n@{username}"
+        if dist is not None:
+            dist_km = dist / 1000
+            label_text = label_text + f"\nРасстояние: {dist_km:.3f} км"
+        label_text = label_text + f"\nСвязь: @{username}"
         keyboard.add(types.InlineKeyboardButton(text="Подробнее", callback_data=f"show_{label_id}"))
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
         return
@@ -336,6 +339,10 @@ class Live:
                 # Если водитель рядом, то добавляем в результирующий список
                 geo[int(label_id)] = dist
         sorted_list = sorted(geo, key=geo.get)
+        result = []
+        for key in sorted_list:
+            result.append(key)
+            result.append(int(geo[key]*1000))
         return sorted_list
 
     # Вывод поисковых результатов
@@ -351,8 +358,11 @@ class Live:
         for i in range(LIST_STEP):
             if len(s_list) == 0:
                 break
-            self.send_label(bot, message, int(s_list[0]))
-            self.labels['views'][s_list[0]] = int(self.labels['views'][s_list[0]]) + 1
+            label_id = int(s_list[0])
+            self.labels['views'][label_id] = int(self.labels['views'][label_id]) + 1
+            dist = int(s_list[1])
+            self.send_label(bot, message, label_id, dist)
+            del s_list[0]
             del s_list[0]
         if len(s_list) == 0:
             self.users['search'].delete(user_id)
