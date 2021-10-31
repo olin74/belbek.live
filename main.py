@@ -184,7 +184,7 @@ class Live:
         return
 
     # Послать краткую метку
-    def send_label(self, bot, message, label_id, dist = None):
+    def send_label(self, bot, message, label_id, dist=None):
         keyboard = types.InlineKeyboardMarkup()
         label_text = f"Описание: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
