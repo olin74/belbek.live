@@ -194,7 +194,7 @@ class Live:
     def my_list(self, user_id):
         result = []
         for label_id, author_id in self.labels['author'].items():
-            if user_id == author_id:
+            if int(user_id) == int(author_id):
                 result.append(label_id)
         return result
 
