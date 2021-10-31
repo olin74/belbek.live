@@ -343,7 +343,7 @@ class Live:
         for key in sorted_list:
             result.append(key)
             result.append(int(geo[key]*1000))
-        return sorted_list
+        return result
 
     # Вывод поисковых результатов
     def go_search(self, bot, message):
