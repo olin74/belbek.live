@@ -193,7 +193,7 @@ class Live:
 
     def my_list(self, user_id):
         result = []
-        for label_id in self.labels['author'].keys():
+        for label_id in self.labels['status_label'].keys():
             if int(user_id) == int(self.labels['author'][label_id]):
                 result.append(int(label_id))
         return result
@@ -247,6 +247,7 @@ class Live:
             button_list.append(types.InlineKeyboardButton(text="Изменить категорию", callback_data=f"cat_{label_id}"))
             if int(self.labels['status_label'][label_id]) == 0:
                 if len(cross) == 0:
+                    label_text = label_text + f"\n\Не опубликованные объявления удаляются спустя сутки"
                     button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
                 else:
                     label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
