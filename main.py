@@ -197,7 +197,7 @@ class Live:
         label_text = label_text + f"\nСвязь: @{username}"
         key_text = "Подробнее"
         user_id = message.chat.id
-        if a_id == user_id and self.users['status'][user_id] >= 0:
+        if a_id == user_id and int(self.users['status'][user_id]) >= 0:
             key_text = "Изменить"
         keyboard.add(types.InlineKeyboardButton(text=key_text, callback_data=f"show_{label_id}"))
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
