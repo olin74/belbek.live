@@ -89,8 +89,8 @@ class Live:
         with open("categories.json") as json_file:
             self.categories = json.load(json_file)
         self.menu_items = [f'Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
-                           'Менеджер объявлений']
-        self.menu_labels = ['Выход', "✳️ Создать метку ✳️"]
+                           'Менеджер меток']
+        self.menu_labels = ['Выход', "Что такое метка?", "Мои метки", "✳️ Создать метку ✳️"]
         self.menu_edit_label = ['Изменить описание', 'Изменить подробности', 'Изменить фотографии', 'Изменить цену',
                                 'Изменить категорию', 'Изменить опции', 'Удалить', 'Опубликовать', 'Продвижение']
         # Чистка базы
@@ -195,7 +195,11 @@ class Live:
             dist_km = dist / 1000
             label_text = label_text + f"\nРасстояние: {dist_km:.2f} км"
         label_text = label_text + f"\nСвязь: @{username}"
-        keyboard.add(types.InlineKeyboardButton(text="Подробнее", callback_data=f"show_{label_id}"))
+        key_text = "Подробнее"
+        user_id = message.chat.id
+        if a_id == user_id and self.users['status'][user_id] >= 0:
+            key_text = "Изменить"
+        keyboard.add(types.InlineKeyboardButton(text=key_text, callback_data=f"show_{label_id}"))
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
         return
 
@@ -219,8 +223,7 @@ class Live:
         return cross_cat
 
     # Послать полную метку
-    def send_full_label(self, bot, message, label_id):
-
+    def send_full_label(self, bot, message, label_id, is_edit=False):
         if label_id not in self.labels['about']:
             self.go_about(bot, message, label_id)
             return
@@ -244,10 +247,9 @@ class Live:
         username = self.users['username'][a_id].decode('utf-8')
         label_text = label_text + f"\n@{username}"
         cross = self.uni_cat(c_list, user_id)
-
         button_list = []
         if int(self.users['status'][user_id]) < 0 or int(self.labels['author'][label_id]) != user_id:
-            button_list.append(types.InlineKeyboardButton(text="Выслать координаты", callback_data=f"geo_{label_id}"))
+            button_list.append(types.InlineKeyboardButton(text="Показать на карте", callback_data=f"geo_{label_id}"))
         else:
             button_list.append(types.InlineKeyboardButton(text="Изменить описание", callback_data=f"abo_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить подробности", callback_data=f"des_{label_id}"))
@@ -263,10 +265,23 @@ class Live:
             if int(self.labels['status_label'][label_id]) == 1:
                 button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
         keyboard.add(*button_list)
-        bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
+        if is_edit:
+            bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id,
+                                  text=label_text, reply_markup=keyboard)
+        else:
+            bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
+
+    # Мои метки
+    def my_labels(self, bot, message):
+        user_id = message.chat.id
+        user_labels = self.my_list(user_id)
+        self.users['status'][user_id] = 0
+        for user_label_id in user_labels:
+            self.send_label(bot, message, int(user_label_id))
+        self.go_menu_labels(bot, message)
 
     # Меню менеджера меток
-    def go_menu_labels(self, bot, message, first=True):
+    def go_menu_labels(self, bot, message):
         user_id = message.chat.id
         menu_label_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
 
@@ -286,25 +301,18 @@ class Live:
             self.send_full_label(bot, message, int(label_id))
             if int(self.users['wait'][user_id]) > 0:
                 return
-        else:
-            user_labels = self.my_list(user_id)
-            for user_label_id in user_labels:
-                self.send_label(bot, message, int(user_label_id))
 
-        keyboard_row = [types.KeyboardButton(text=self.menu_labels[0])]
+        menu_label_keyboard.row(types.KeyboardButton(text=self.menu_labels[0]),
+                                types.KeyboardButton(text=self.menu_labels[1]),
+                                types.KeyboardButton(text=self.menu_labels[2]))
         # Если задан username то покажем кнопку
         menu_label_text = f"Задайте имя пользователя в аккаунте Telegram, что бы создавать метки."
         if message.chat.username is not None:
-            keyboard_row.append(types.KeyboardButton(text=self.menu_labels[1], request_location=True))
+            menu_label_keyboard.row(types.KeyboardButton(text=self.menu_labels[3], request_location=True))
             menu_label_text = f"Для создания метки там, где вы находитесь нажмите “Создать метку” или " \
                               f"отправьте координаты текстом."
 
-        menu_label_keyboard.row(*keyboard_row)
-        if first:
-            bot.send_message(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
-        else:
-            bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id,
-                                  text=menu_label_text, reply_markup=menu_label_keyboard)
+        bot.send_message(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
 
     # Формирование списка поиска
     def get_search_list(self, message, location):
@@ -515,7 +523,7 @@ class Live:
                 return
 
             # Обработка кнопки "Выход"
-            if message.text == self.menu_labels[0] and int(self.users['status'][user_id]) >= 0:
+            if message.text == self.menu_labels[0]:
                 self.users['status'][user_id] = -1
                 self.users['wait'][user_id] = 0
                 if user_id in self.users['category']:
@@ -524,10 +532,33 @@ class Live:
                     self.users['subcategory'].delete(user_id)
                 self.go_start(bot, message)
                 return
+
+            # Обработка кнопки "Что такое метка?"
+            if message.text == self.menu_labels[1]:
+                wtf_label = "Метка - это точка на карте, которая наиболее хорошо подходит к вашим товарам и услугам." \
+                            " Например, это может быть точка продажи хлеба, студия массажа,или, в случае, если у" \
+                            " вас доставка по долине, то место производства, скажем, мёда. Эта точка будет" \
+                            " использоваться для навигации к вам, если это потребуется, или просто давать информацию" \
+                            " из какой части долины будет производиться доставка. Разместить метку можно нажав на" \
+                            " кнопку 'Создать метку', тогда метка будет создана на том же месте, где вы находитесь" \
+                            " (геолокация на телефоне должна быть включена). Если выхотите создать метку не в том" \
+                            " месте, где находитесь, то вместо нажатия кнопки отправьте координаты (через запятую)" \
+                            " того места, где собираетесь создать метку. После создания точки на карте, укажите" \
+                            " назавние и дайте краткое описание метки. Затем выберите подкатегорию (или несколько)," \
+                            " в которых ваша метка будет отображаться при поиске пользователями сервиса." \
+                            " В каждой подкатегории у вас может быть не более одной метки. После создания метки вы" \
+                            " можете заполнить необзательные поля, такие как 'подробное описание' или 'цена'. Далее" \
+                            " вам следует опубликовать метку нажав на соответствующую кнопку. Для удаления метки" \
+                            " снимие её с публикации и она удалится из списка ваших меток через сутки."
+                bot.send_message(message.chat.id, wtf_label)
+                return
+
+            if message.text == self.menu_labels[1]:
+                self.my_labels(bot, message)
+                return
+
             # Обработка кнопки "Выбрать категорию"
             if message.text == self.menu_items[2] and int(self.users['status'][user_id]) < 0:
-                if user_id in self.users['subcategory']:
-                    self.users['subcategory'].delete(user_id)
                 self.select_cat(bot, message)
                 return
 
@@ -571,6 +602,9 @@ class Live:
             if call.data[:4] == "ucat":
                 category = call.data.split('_')[1]
                 self.users['category'][user_id] = category
+                if user_id in self.users['subcategory']:
+                    self.users['subcategory'].delete(user_id)
+
                 self.go_start(bot, call.message)
 
             # Выбираем подкатегорию поиска
@@ -642,13 +676,13 @@ class Live:
             if call.data[:3] == "del":
                 label_id = int(call.data.split('_')[1])
                 self.labels['status_label'].setex(label_id, 86400, 0)
-                self.go_menu_labels(bot, call.message, False)
+                self.send_full_label(bot, call.message, label_id, True)
 
             # Опубликовать
             if call.data[:3] == "pub":
                 label_id = int(call.data.split('_')[1])
                 self.labels['status_label'].set(label_id, 1)
-                self.go_menu_labels(bot, call.message, False)
+                self.send_full_label(bot, call.message, label_id, True)
 
             bot.answer_callback_query(call.id)
 
