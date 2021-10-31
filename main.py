@@ -273,13 +273,13 @@ class Live:
         self.users['name'][user_id] = name
 
         if label_id > 0:
-            self.send_full_label(bot, message, label_id)
+            self.send_full_label(bot, message, int(label_id))
             if int(self.users['wait'][user_id]) > 0:
                 return
         else:
             user_labels = self.my_list(user_id)
             for user_label_id in user_labels:
-                self.send_label(bot, message, user_label_id)
+                self.send_label(bot, message, int(user_label_id))
 
         keyboard_row = [types.KeyboardButton(text=self.menu_labels[0])]
         # Если задан username то покажем кнопку
@@ -344,7 +344,7 @@ class Live:
         for i in range(LIST_STEP):
             if len(s_list) == 0:
                 break
-            self.send_label(bot, message, s_list[0])
+            self.send_label(bot, message, int(s_list[0]))
             self.labels['views'][s_list[0]] = int(self.labels['views'][s_list[0]]) + 1
             del s_list[0]
         if len(s_list) == 0:
@@ -567,7 +567,7 @@ class Live:
                 label_id = int(call.data.split('_')[1])
                 if int(self.users['status'][user_id]) == 0:
                     self.users['status'][user_id] = label_id
-                self.send_full_label(bot, call.message, label_id)
+                self.send_full_label(bot, call.message, int(label_id))
 
             # Посылаем геопозицию
             if call.data[:3] == "geo":
