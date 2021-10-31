@@ -236,11 +236,9 @@ class Live:
         username = self.users['username'][a_id].decode('utf-8')
         label_text = label_text + f"\n@{username}"
         cross = self.uni_cat(c_list, user_id)
-        if len(cross) > 0:
-            label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
-                                      f" (Ваши объявления уже есть здесь: {','.join(cross)})"
+
         button_list = []
-        if int(self.users['status'][user_id]) < 0 or self.labels['author'] != user_id:
+        if int(self.users['status'][user_id]) < 0 or int(self.labels['author'][label_id]) != user_id:
             button_list.append(types.InlineKeyboardButton(text="Выслать координаты", callback_data=f"geo_{label_id}"))
         else:
             button_list.append(types.InlineKeyboardButton(text="Изменить описание", callback_data=f"abo_{label_id}"))
@@ -250,6 +248,9 @@ class Live:
             if int(self.labels['status_label'][label_id]) == 0:
                 if len(cross) == 0:
                     button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
+                else:
+                    label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
+                                              f" (Ваши объявления уже есть здесь: {','.join(cross)})"
             if int(self.labels['status_label'][label_id]) == 1:
                 button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
         keyboard.add(*button_list)
