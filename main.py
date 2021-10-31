@@ -422,6 +422,17 @@ class Live:
         keyboard = types.InlineKeyboardMarkup()
         user_id = message.chat.id
         self.users['wait'][user_id] = 5
+
+        orig_label_id = int(self.users['status'][user_id])
+
+        l_list = self.my_list(user_id)
+        st_list = []
+        for label_id in l_list:
+            if int(self.labels['status_label'][label_id]) == 1 and label_id != orig_label_id:
+                cat_list = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
+                for cat in cat_list:
+                    st_list.append(cat)
+
         label_id = int(self.users['status'][user_id])
         if label_id not in self.labels['subcategory']:
             self.labels['subcategory'][label_id] = '[]'
@@ -429,9 +440,13 @@ class Live:
         for cat, sub_list in self.categories.items():
             for sub in sub_list:
                 pre = ""
+                call_st = f"lcat_{sub}"
                 if sub in label_cats:
                     pre = "✅ "
-                keyboard.row(types.InlineKeyboardButton(text=f"{pre}{cat}: {sub}", callback_data=f"lcat_{sub}"))
+                elif sub in st_list:
+                    pre = "🚫 "
+                    call_st = "none"
+                keyboard.row(types.InlineKeyboardButton(text=f"{pre}{cat}: {sub}", callback_data=call_st))
         keyboard.row(types.InlineKeyboardButton(text=f"Готово", callback_data=f"done"))
         m_text = "Следует отметить одну или несколько подкатегорий:"
         if first:
