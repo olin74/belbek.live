@@ -195,7 +195,7 @@ class Live:
         result = []
         for label_id in self.labels['author'].keys():
             if int(user_id) == int(self.labels['author'][label_id]):
-                result.append(label_id)
+                result.append(int(label_id))
         return result
 
     # Выявить перекресные категории
