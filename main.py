@@ -137,10 +137,15 @@ class Live:
                            f"(определение геолокации должно быть включено)" \
                            f" или отправьте свои координаты текстом.\n" \
                            f"Канал поддержки https://t.me/BelbekLive"
+        mess_cat = "Все"
         if user_id in self.users['category']:
-            menu_message = menu_message + f"\nКатегория: {self.users['category'][user_id].decode('utf-8')}"
-        if user_id in self.users['subcategory']:
-            menu_message = menu_message + f"\nПодкатегория: {self.users['subcategory'][user_id].decode('utf-8')}"
+            mess_cat = self.users['category'][user_id].decode('utf-8')
+        menu_message = menu_message + f"\nКатегория поиска: {mess_cat}"
+        if user_id in self.users['category']:
+            mess_cat = "Все"
+            if user_id in self.users['subcategory']:
+                mess_cat = self.users['subcategory'][user_id].decode('utf-8')
+            menu_message = menu_message + f"\nПодкатегория поиска: {mess_cat}"
         bot.send_message(message.chat.id, menu_message, reply_markup=menu_keyboard, disable_web_page_preview=True)
 
     # Запрос объявления
