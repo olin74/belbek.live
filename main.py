@@ -211,11 +211,12 @@ class Live:
         return result
 
     # Выявить перекресные категории
-    def uni_cat(self, c_list, user_id):
+    def uni_cat(self, orig_label_id, user_id):
+        c_list = json.loads(self.labels['subcategory'][orig_label_id].decode('utf-8'))
         l_list = self.my_list(user_id)
         cross_cat = []
         for label_id in l_list:
-            if int(self.labels['status_label'][label_id]) == 1:
+            if int(self.labels['status_label'][label_id]) == 1 and label_id != orig_label_id:
                 cat_list = json.loads(self.labels['subcategory'][label_id].decode('utf-8'))
                 for cat in cat_list:
                     if cat in c_list:
@@ -246,7 +247,7 @@ class Live:
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
         label_text = label_text + f"\n@{username}"
-        cross = self.uni_cat(c_list, user_id)
+        cross = self.uni_cat(label_id, user_id)
         if len(cross) > 0 and int(self.labels['status_label'][label_id]) == 1:
             self.labels['status_label'][label_id] = 0
         button_list = []
