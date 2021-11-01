@@ -15,7 +15,7 @@ import os
 ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только Олин)
 ABOUT_LIMIT = 100  # Лимит символов в описании
 DESCRIPTION_LIMIT = 600  # Лимит символов в подробностях
-PRICE_LIMIT = 20  # Лимит символов в цене
+PRICE_LIMIT = 25  # Лимит символов в цене
 LIST_STEP = 10  # Результатов поиска за 1 раз
 TIME_OUT_USER = 30 * 30 * 24 * 30  # Время отсутствия активности пользователя перед удалением его меток
 CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact",
@@ -45,12 +45,14 @@ def get_distance(long1, lat1, long2, lat2):
 
 class Live:
     def __init__(self):
+
+        # Подгружаем из системы ссылки на базы данных
         redis_url = os.environ['REDIS_URL_LIVE']
         redis_url_labels = os.environ['REDIS_URL_LABELS']
         # redis_url_events = os.environ['REDIS_URL_EVENTS']
         # redis_url = 'redis://:@localhost:6379'  # Для теста на локальном сервере
-        # База данных пользователей
 
+        # База данных пользователей
         self.users = {'wait': redis.from_url(redis_url, db=1),
                       'status': redis.from_url(redis_url, db=2),
                       'geo_long': redis.from_url(redis_url, db=3),
@@ -63,6 +65,7 @@ class Live:
                       # 'labels': redis.from_url(redis_url, db=10),
                       'last_login': redis.from_url(redis_url, db=11)
                       }
+
         # База данных меток
         self.labels = {'about': redis.from_url(redis_url_labels, db=1),
                        'description': redis.from_url(redis_url_labels, db=2),
@@ -80,19 +83,26 @@ class Live:
 
         # База данных событий
         # self.events =
+
+        # Инициализируем индексацию меток
         self.common = redis.from_url(redis_url, db=0)
         if "index" not in self.common:
             index = 0
             for k in self.labels['status_label'].keys():
                 index = k
             self.common['index'] = index
+
+        # Подгрузка категорий
         with open("categories.json") as json_file:
             self.categories = json.load(json_file)
+
+        # Кнопки меню
         self.menu_items = [f'Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
                            'Менеджер меток']
         self.menu_labels = ['Выход', "Что такое метка?", "Мои метки", "✳️ Создать метку ✳️"]
         self.menu_edit_label = ['Изменить описание', 'Изменить подробности', 'Изменить фотографии', 'Изменить цену',
-                                'Изменить категорию', 'Изменить опции', 'Удалить', 'Опубликовать', 'Продвижение']
+                                'Изменить категорию', 'Изменить опции', 'Снять с публикации', 'Опубликовать',
+                                'Продвижение']
         # Чистка базы
         for field in self.labels:
             for key in self.labels[field].keys():
@@ -106,9 +116,8 @@ class Live:
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
         user_id = message.chat.id
-
         menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-
+        # Если поиск
         first_row = []
         if user_id in self.users['search']:
             first_row.append(types.KeyboardButton(text=self.menu_items[0]))
@@ -133,10 +142,10 @@ class Live:
         menu_message = ""
         if is_start:
             menu_message = f"Объявлений опубликовано: {active}\n" \
-                           f"👍 Для поиска мест, укажите категорию, нажмите “Поиск” " \
+                           f"🔎 Для поиска мест, укажите категорию, нажмите “Новый поиск” " \
                            f"(определение геолокации должно быть включено)" \
                            f" или отправьте свои координаты текстом.\n" \
-                           f"Канал поддержки https://t.me/BelbekLive"
+                           f"Канал поддержки https://t.me/BelbekLive\n"
         mess_cat = "Все"
         if user_id in self.users['category']:
             mess_cat = self.users['category'][user_id].decode('utf-8')
@@ -155,8 +164,8 @@ class Live:
         # Устанавливаем ожидание текстового ответа для поля "объявление"
         self.users['wait'][user_id] = 1
         self.users['status'][user_id] = label_id
-        bot.send_message(message.chat.id, f"Введите краткое описание места (не больше {ABOUT_LIMIT} символов),"
-                                          f" например: “Спот. Культурное протранство. Туристический центр.”",
+        bot.send_message(message.chat.id, f"Введите название и краткое описание места (не больше {ABOUT_LIMIT}"
+                                          f" символов), например: “Спот. Культурное протранство. Туристический центр.”",
                          reply_markup=keyboard)
         return
 
@@ -167,7 +176,7 @@ class Live:
         # Устанавливаем ожидание текстового ответа для поля "подробности"
         self.users['wait'][user_id] = 2
         self.users['status'][user_id] = label_id
-        bot.send_message(message.chat.id, f"Введите подробное описание места (не больше {DESCRIPTION_LIMIT} символов)",
+        bot.send_message(message.chat.id, f"📝 Введите подробное описание места (не больше {DESCRIPTION_LIMIT} символов)",
                          reply_markup=keyboard)
         return
 
@@ -179,22 +188,25 @@ class Live:
         self.users['wait'][user_id] = 4
         self.users['status'][user_id] = label_id
         bot.send_message(message.chat.id,
-                         f"Введите цены (не больше {PRICE_LIMIT} символов), например: “от 300 рублей/сутки”",
+                         f"💰 Введите цену (не больше {PRICE_LIMIT} символов), например: “от 300 рублей/сутки”",
                          reply_markup=keyboard)
         return
 
     # Послать краткую метку
     def send_label(self, bot, message, label_id, dist=None):
         keyboard = types.InlineKeyboardMarkup()
-        label_text = f"Описание: {self.labels['about'][label_id].decode('utf-8')}"
+        status_indicator = "✳️"
+        if int(self.labels['status_label'][label_id]) == 0:
+            status_indicator = "✴️"
+        label_text = f"{status_indicator}: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
-            label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
+            label_text = label_text + f"\n💰: {self.labels['price'][label_id].decode('utf-8')}"
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
         if dist is not None:
             dist_km = dist / 1000
-            label_text = label_text + f"\nРасстояние: {dist_km:.2f} км"
-        label_text = label_text + f"\nСвязь: @{username}"
+            label_text = label_text + f"\n🚙: {dist_km:.2f} км"
+        label_text = label_text + f"\n💬: @{username}"
         key_text = "Подробнее"
         user_id = message.chat.id
         if a_id == user_id and int(self.users['status'][user_id]) >= 0:
@@ -237,16 +249,19 @@ class Live:
             return
         keyboard = types.InlineKeyboardMarkup(row_width=2)
         user_id = message.chat.id
-        label_text = f"№{label_id} Описание: {self.labels['about'][label_id].decode('utf-8')}"
+        status_indicator = "✳️"
+        if int(self.labels['status_label'][label_id]) == 0:
+            status_indicator = "✴️"
+        label_text = f"№{label_id} {status_indicator}: {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['description']:
-            label_text = label_text + f"\nПодробности: {self.labels['description'][label_id].decode('utf-8')}"
+            label_text = label_text + f"\n📝: {self.labels['description'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
-            label_text = label_text + f"\nЦена: {self.labels['price'][label_id].decode('utf-8')}"
-        label_text = label_text + f"\nПодкатегории: {','.join(c_list)}"
-        label_text = label_text + f"\nПросмотров: {int(self.labels['views'][label_id])}"
+            label_text = label_text + f"\n💰: {self.labels['price'][label_id].decode('utf-8')}"
+        label_text = label_text + f"\n📒: {','.join(c_list)}"
+        label_text = label_text + f"\n👀: {int(self.labels['views'][label_id])}"
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
-        label_text = label_text + f"\n@{username}"
+        label_text = label_text + f"\n💬: @{username}"
         cross = self.uni_cat(label_id, user_id)
         if len(cross) > 0 and int(self.labels['status_label'][label_id]) == 1:
             self.labels['status_label'][label_id] = 0
@@ -257,14 +272,14 @@ class Live:
             button_list.append(types.InlineKeyboardButton(text="Изменить описание", callback_data=f"abo_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить подробности", callback_data=f"des_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить цену", callback_data=f"pri_{label_id}"))
-            button_list.append(types.InlineKeyboardButton(text="Изменить категорию", callback_data=f"cat_{label_id}"))
+            button_list.append(types.InlineKeyboardButton(text="Изменить категории", callback_data=f"cat_{label_id}"))
             if int(self.labels['status_label'][label_id]) == 0:
                 if len(cross) == 0:
                     label_text = label_text + f"\nОбъявления снятые с публикации удаляются спустя сутки"
                     button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
                 else:
-                    label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории" \
-                                              f" (Ваши объявления уже есть здесь: {','.join(cross)})"
+                    label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории." \
+                                              f" Ваши объявления уже есть здесь: {','.join(cross)}"
             if int(self.labels['status_label'][label_id]) == 1:
                 button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
         keyboard.add(*button_list)
@@ -552,15 +567,18 @@ class Live:
 
             # Обработка кнопки "Что такое метка?"
             if message.text == self.menu_labels[1]:
-                wtf_label = "Метка - это точка на карте, которая наиболее хорошо подходит к вашим товарам и услугам." \
-                            " Например, это может быть точка продажи хлеба, студия массажа,или, в случае, если у" \
-                            " вас доставка по долине, то место производства, скажем, мёда. Эта точка будет" \
+                wtf_label = "Метка - это точка на карте, в которой происходит производство или реализация" \
+                            " ваших товаров и услуг." \
+                            " Например, это может быть точка продажи хлеба, сдаваемая в аренду недвижимость," \
+                            " студия массажа, или, в случае, если у" \
+                            " вас доставка по долине, место производства. Эта точка будет" \
                             " использоваться для навигации к вам, если это потребуется, или просто давать информацию" \
-                            " из какой части долины будет производиться доставка. Разместить метку можно нажав на" \
+                            " о том, из какой части долины будет производиться доставка." \
+                            " Разместить метку можно нажав на" \
                             " кнопку 'Создать метку', тогда метка будет создана на том же месте, где вы находитесь" \
-                            " (геолокация на телефоне должна быть включена). Если выхотите создать метку не в том" \
-                            " месте, где находитесь, то вместо нажатия кнопки отправьте координаты (через запятую)" \
-                            " того места, где собираетесь создать метку. После создания точки на карте, укажите" \
+                            " (геолокация на телефоне должна быть включена). Если вы хотите создать метку в другом" \
+                            " месте, то вместо нажатия кнопки отправьте текстом координаты (через запятую)." \
+                            " После создания точки на карте, укажите" \
                             " назавние и дайте краткое описание метки. Затем выберите подкатегорию (или несколько)," \
                             " в которых ваша метка будет отображаться при поиске пользователями сервиса." \
                             " В каждой подкатегории у вас может быть не более одной метки. После создания метки вы" \
