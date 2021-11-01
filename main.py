@@ -312,7 +312,7 @@ class Live:
         menu_label_text = f"Задайте имя пользователя в аккаунте Telegram, что бы создавать метки."
         if message.chat.username is not None:
             menu_label_keyboard.row(types.KeyboardButton(text=self.menu_labels[3], request_location=True))
-            menu_label_text = f"Менеджер меток"
+            menu_label_text = f"Управляйте своими метками или создайте новую."
 
         bot.send_message(message.chat.id, menu_label_text, reply_markup=menu_label_keyboard)
 
