@@ -97,7 +97,7 @@ class Live:
             self.categories = json.load(json_file)
 
         # Кнопки меню
-        self.menu_items = [f'Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
+        self.menu_items = [f'♻️ Еще {LIST_STEP}', 'Новый поиск', 'Выбрать категорию', 'Выбрать подкатегорию',
                            'Менеджер меток']
         self.menu_labels = ['Выход', "Что такое метка?", "Мои метки", "✳️ Создать метку ✳️"]
         self.menu_edit_label = ['Изменить описание', 'Изменить подробности', 'Изменить фотографии', 'Изменить цену',
@@ -145,16 +145,16 @@ class Live:
                            f"🔎 Для поиска мест, укажите категорию, нажмите “Новый поиск” " \
                            f"(определение геолокации должно быть включено)" \
                            f" или отправьте свои координаты текстом.\n" \
-                           f"Канал поддержки https://t.me/BelbekLive\n"
+                           f"Канал поддержки: https://t.me/BelbekLive\n"
         mess_cat = "Все"
         if user_id in self.users['category']:
             mess_cat = self.users['category'][user_id].decode('utf-8')
-        menu_message = menu_message + f"\nКатегория поиска: {mess_cat}"
+        menu_message = menu_message + f"\n📒 Категория поиска: {mess_cat}"
         if user_id in self.users['category']:
             mess_cat = "Все"
             if user_id in self.users['subcategory']:
                 mess_cat = self.users['subcategory'][user_id].decode('utf-8')
-            menu_message = menu_message + f"\nПодкатегория поиска: {mess_cat}"
+            menu_message = menu_message + f"\n📚 Подкатегория поиска: {mess_cat}"
         bot.send_message(message.chat.id, menu_message, reply_markup=menu_keyboard, disable_web_page_preview=True)
 
     # Запрос объявления
@@ -274,15 +274,15 @@ class Live:
             button_list.append(types.InlineKeyboardButton(text="Изменить подробности", callback_data=f"des_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить цену", callback_data=f"pri_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить категории", callback_data=f"cat_{label_id}"))
-            if int(self.labels['status_label'][label_id]) == 0:
+            if int(self.labels['status_label'][label_id]) <= 0:
+                label_text = label_text + f"\n\n⚠️ Объявления снятые с публикации удаляются спустя сутки"
                 if len(cross) == 0:
-                    label_text = label_text + f"\n\nОбъявления снятые с публикации удаляются спустя сутки"
-                    button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
+                    button_list.append(types.InlineKeyboardButton(text="✳️ Опубликовать ✳️", callback_data=f"pub_{label_id}"))
                 else:
-                    label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории." \
-                                              f" Ваши объявления уже есть здесь: {','.join(cross)}"
+                    label_text = label_text + f"\n\n‼️ Вы не можете создать две метки в одной подкатегории." \
+                                              f" Ваши объявления уже есть здесь: {','.join(cross)} ‼️"
             if int(self.labels['status_label'][label_id]) == 1:
-                button_list.append(types.InlineKeyboardButton(text="Удалить", callback_data=f"del_{label_id}"))
+                button_list.append(types.InlineKeyboardButton(text="✴️ Удалить ✴️", callback_data=f"del_{label_id}"))
         keyboard.add(*button_list)
         if is_edit:
             bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id,
@@ -519,7 +519,7 @@ class Live:
                     return
                 else:
                     bot.send_message(message.chat.id, f"‼️ Описание слишком длинное, "
-                                                      f"ограничение {ABOUT_LIMIT} символов")
+                                                      f"ограничение {ABOUT_LIMIT} символов ‼️")
                     return
 
             # Обработка текстовых сообщений от пользователя, заполняю подробности
@@ -532,7 +532,8 @@ class Live:
                     return
                 else:
                     bot.send_message(message.chat.id,
-                                     f"‼️ Подробное описание слишком длинное, ограничение {DESCRIPTION_LIMIT} символов")
+                                     f"‼️ Подробное описание слишком длинное,"
+                                     f" ограничение {DESCRIPTION_LIMIT} символов ‼️")
                 return
 
             # Обработка текстовых сообщений от пользователя, заполняю цену
@@ -545,7 +546,7 @@ class Live:
                     return
                 else:
                     bot.send_message(message.chat.id,
-                                     f"‼️ Описание цены слишком длинное, ограничение {PRICE_LIMIT} символов")
+                                     f"‼️ Описание цены слишком длинное, ограничение {PRICE_LIMIT} символов ‼️")
                     return
 
             # Обработка кнопки "Менеджер меток"
@@ -569,7 +570,7 @@ class Live:
 
             # Обработка кнопки "Что такое метка?"
             if message.text == self.menu_labels[1]:
-                wtf_label = "Метка - это точка на карте, в которой происходит производство или реализация" \
+                wtf_label = "Метка ✳️ - это точка на карте, в которой происходит производство или реализация" \
                             " ваших товаров и услуг." \
                             " Например, это может быть точка продажи хлеба, сдаваемая в аренду недвижимость," \
                             " студия массажа, или, в случае, если у" \
