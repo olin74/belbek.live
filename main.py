@@ -176,7 +176,8 @@ class Live:
         # Устанавливаем ожидание текстового ответа для поля "подробности"
         self.users['wait'][user_id] = 2
         self.users['status'][user_id] = label_id
-        bot.send_message(message.chat.id, f"📝 Введите подробное описание места (не больше {DESCRIPTION_LIMIT} символов)",
+        bot.send_message(message.chat.id, f"📝 Введите подробное описание места "
+                                          f"(не больше {DESCRIPTION_LIMIT} символов)",
                          reply_markup=keyboard)
         return
 
@@ -198,15 +199,15 @@ class Live:
         status_indicator = "✳️"
         if int(self.labels['status_label'][label_id]) == 0:
             status_indicator = "✴️"
-        label_text = f"{status_indicator}: {self.labels['about'][label_id].decode('utf-8')}"
+        label_text = f"{status_indicator} {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
-            label_text = label_text + f"\n💰: {self.labels['price'][label_id].decode('utf-8')}"
+            label_text = label_text + f"\n💰 {self.labels['price'][label_id].decode('utf-8')}"
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
         if dist is not None:
             dist_km = dist / 1000
-            label_text = label_text + f"\n🚙: {dist_km:.2f} км"
-        label_text = label_text + f"\n💬: @{username}"
+            label_text = label_text + f"\n🚙 {dist_km:.2f} км"
+        label_text = label_text + f"\n💬 @{username}"
         key_text = "Подробнее"
         user_id = message.chat.id
         if a_id == user_id and int(self.users['status'][user_id]) >= 0:
@@ -252,16 +253,16 @@ class Live:
         status_indicator = "✳️"
         if int(self.labels['status_label'][label_id]) == 0:
             status_indicator = "✴️"
-        label_text = f"№{label_id} {status_indicator}: {self.labels['about'][label_id].decode('utf-8')}"
+        label_text = f"№{label_id} {status_indicator} {self.labels['about'][label_id].decode('utf-8')}"
         if label_id in self.labels['description']:
-            label_text = label_text + f"\n📝: {self.labels['description'][label_id].decode('utf-8')}"
+            label_text = label_text + f"\n📝 {self.labels['description'][label_id].decode('utf-8')}"
         if label_id in self.labels['price']:
-            label_text = label_text + f"\n💰: {self.labels['price'][label_id].decode('utf-8')}"
-        label_text = label_text + f"\n📒: {','.join(c_list)}"
-        label_text = label_text + f"\n👀: {int(self.labels['views'][label_id])}"
+            label_text = label_text + f"\n💰 {self.labels['price'][label_id].decode('utf-8')}"
+        label_text = label_text + f"\n📒 {','.join(c_list)}"
+        label_text = label_text + f"\n👀 {int(self.labels['views'][label_id])} просмотра"
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
-        label_text = label_text + f"\n💬: @{username}"
+        label_text = label_text + f"\n💬 @{username}"
         cross = self.uni_cat(label_id, user_id)
         if len(cross) > 0 and int(self.labels['status_label'][label_id]) == 1:
             self.labels['status_label'][label_id] = 0
@@ -324,7 +325,7 @@ class Live:
                                 types.KeyboardButton(text=self.menu_labels[1]),
                                 types.KeyboardButton(text=self.menu_labels[2]))
         # Если задан username то покажем кнопку
-        menu_label_text = f"Задайте имя пользователя в аккаунте Telegram, что бы создавать метки."
+        menu_label_text = f"‼️ Задайте имя пользователя в аккаунте Telegram, что бы создавать метки ‼️"
         if message.chat.username is not None:
             menu_label_keyboard.row(types.KeyboardButton(text=self.menu_labels[3], request_location=True))
             menu_label_text = f"Управляйте своими метками или создайте новую."
@@ -376,7 +377,7 @@ class Live:
         s_list = json.loads(self.users['search'][user_id].decode('utf-8'))
         s_len = len(s_list)
         if s_len == 0:
-            m_text = "Ничего не найдено! Этот раздел еще не начал наполняться."
+            m_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
         else:
             m_text = f"Найдено меток: {s_len // 2}"
         bot.send_message(message.chat.id, m_text)
@@ -517,7 +518,7 @@ class Live:
                     self.go_menu_labels(bot, message)
                     return
                 else:
-                    bot.send_message(message.chat.id, f"Описание слишком длинное, ограничение {ABOUT_LIMIT} символов")
+                    bot.send_message(message.chat.id, f"‼️ Описание слишком длинное, ограничение {ABOUT_LIMIT} символов")
                     return
 
             # Обработка текстовых сообщений от пользователя, заполняю подробности
@@ -530,7 +531,7 @@ class Live:
                     return
                 else:
                     bot.send_message(message.chat.id,
-                                     f"Подробное описание слишком длинное, ограничение {DESCRIPTION_LIMIT} символов")
+                                     f"‼️ Подробное описание слишком длинное, ограничение {DESCRIPTION_LIMIT} символов")
                 return
 
             # Обработка текстовых сообщений от пользователя, заполняю цену
@@ -543,7 +544,7 @@ class Live:
                     return
                 else:
                     bot.send_message(message.chat.id,
-                                     f"Описание цены слишком длинное, ограничение {PRICE_LIMIT} символов")
+                                     f"‼️ Описание цены слишком длинное, ограничение {PRICE_LIMIT} символов")
                     return
 
             # Обработка кнопки "Менеджер меток"
@@ -699,7 +700,9 @@ class Live:
                     categories.remove(cat)
                 else:
                     categories.append(cat)
+
                 self.labels['subcategory'][label_id] = json.dumps(categories)
+
                 self.go_cat(bot, call.message, False)
 
             # Категории выбраны
