@@ -259,7 +259,6 @@ class Live:
         if label_id in self.labels['price']:
             label_text = label_text + f"\n💰 {self.labels['price'][label_id].decode('utf-8')}"
         label_text = label_text + f"\n📒 {','.join(c_list)}"
-        label_text = label_text + f"\n👀 {int(self.labels['views'][label_id])} просмотра"
         a_id = int(self.labels['author'][label_id])
         username = self.users['username'][a_id].decode('utf-8')
         label_text = label_text + f"\n💬 @{username}"
@@ -270,13 +269,14 @@ class Live:
         if int(self.users['status'][user_id]) < 0 or int(self.labels['author'][label_id]) != user_id:
             button_list.append(types.InlineKeyboardButton(text="Показать на карте", callback_data=f"geo_{label_id}"))
         else:
+            label_text = label_text + f"\n👀 {int(self.labels['views'][label_id])}"
             button_list.append(types.InlineKeyboardButton(text="Изменить описание", callback_data=f"abo_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить подробности", callback_data=f"des_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить цену", callback_data=f"pri_{label_id}"))
             button_list.append(types.InlineKeyboardButton(text="Изменить категории", callback_data=f"cat_{label_id}"))
             if int(self.labels['status_label'][label_id]) == 0:
                 if len(cross) == 0:
-                    label_text = label_text + f"\nОбъявления снятые с публикации удаляются спустя сутки"
+                    label_text = label_text + f"\n\nОбъявления снятые с публикации удаляются спустя сутки"
                     button_list.append(types.InlineKeyboardButton(text="Опубликовать", callback_data=f"pub_{label_id}"))
                 else:
                     label_text = label_text + f"\n\nВы не можете создать две метки в одной подкатегории." \
@@ -518,7 +518,8 @@ class Live:
                     self.go_menu_labels(bot, message)
                     return
                 else:
-                    bot.send_message(message.chat.id, f"‼️ Описание слишком длинное, ограничение {ABOUT_LIMIT} символов")
+                    bot.send_message(message.chat.id, f"‼️ Описание слишком длинное, "
+                                                      f"ограничение {ABOUT_LIMIT} символов")
                     return
 
             # Обработка текстовых сообщений от пользователя, заполняю подробности
