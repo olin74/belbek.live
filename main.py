@@ -489,9 +489,12 @@ class Live:
         def cancel_message(message):
             user_id = message.chat.id
             label_id = int(self.users['status'][user_id])
-            self.users['status'][user_id] = 0
+
             self.users['wait'][user_id] = 0
-            self.labels['status_label'].delete(label_id)
+            if label_id not in self.labels['about'] or label_id not in self.labels['subcategory'] \
+                    or len(json.loads(self.labels['subcategory'][label_id].decode('utf-8'))) == 0:
+                self.labels['status_label'].delete(label_id)
+                self.users['status'][user_id] = 0
             self.go_menu_labels(bot, message)
 
         # Тест вычисления расстояния специальной командой
@@ -738,7 +741,6 @@ class Live:
                 self.send_full_label(bot, call.message, label_id, True)
 
             bot.answer_callback_query(call.id)
-
         bot.polling()
 
 
