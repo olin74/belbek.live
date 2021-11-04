@@ -49,6 +49,7 @@ class Live:
         # Подгружаем из системы ссылки на базы данных
         redis_url = os.environ['REDIS_URL_LIVE']
         redis_url_labels = os.environ['REDIS_URL_LABELS']
+        redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
         # redis_url_events = os.environ['REDIS_URL_EVENTS']
         # redis_url = 'redis://:@localhost:6379'  # Для теста на локальном сервере
 
@@ -82,7 +83,19 @@ class Live:
                        }
 
         # База данных событий
-        # self.events =
+        # self.events = {'about': redis.from_url(redis_url_labels, db=1),
+        #                    'description': redis.from_url(redis_url_labels, db=2),
+        #                    'photos': redis.from_url(redis_url_labels, db=3),
+        #                    'price': redis.from_url(redis_url_labels, db=4),
+        #                    'category': redis.from_url(redis_url_labels, db=5),
+        #                    'tags': redis.from_url(redis_url_labels, db=6),
+        #                    'status_event': redis.from_url(redis_url_labels, db=7),
+        #                    'time_start': redis.from_url(redis_url_labels, db=8),
+        #                    'time_end': redis.from_url(redis_url_labels, db=9),
+        #                    'views': redis.from_url(redis_url_labels, db=10),
+        #                    'label_owner': redis.from_url(redis_url_labels, db=11),
+        #                    'zoom': redis.from_url(redis_url_labels, db=12)
+        #                        }
 
         # Инициализируем индексацию меток
         self.common = redis.from_url(redis_url, db=0)
@@ -103,6 +116,10 @@ class Live:
         self.menu_edit_label = ['Изменить описание', 'Изменить подробности', 'Изменить фотографии', 'Изменить цену',
                                 'Изменить категорию', 'Изменить опции', 'Снять с публикации', 'Опубликовать',
                                 'Продвижение']
+
+        today = str(int(time.time()) - int(time.time()) % (3600 * 24))[:-3]
+        redis.from_url(redis_url_snapshot).set('snapshot-' + today, self.snapdata())
+
         # Чистка базы
         for field in self.labels:
             for key in self.labels[field].keys():
@@ -112,6 +129,24 @@ class Live:
             user_id = int(self.labels['author'][label_id])
             if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
                 self.labels['status_label'][label_id] = 0
+
+    def snapdata(self):
+        sdata = []
+        for label_id in self.labels['status_label'].keys():
+            if int(self.labels['status_label'][label_id]) == 1:
+                label = {
+                    'about': self.labels['status_label'][label_id].decode('utf-8'),
+                    'description': dict(self.labels['description']).get(label_id, "").decode('utf-8'),
+                    'price': dict(self.labels['price']).get(label_id, "").decode('utf-8'),
+                    'subcategory': self.labels['subcategory'][label_id].decode('utf-8'),
+                    #  'tags': self.labels['tags'][label_id].decode('utf-8'),
+                    'geo_lat': float(self.labels['geo_lat'][label_id]),
+                    'geo_long': float(self.labels['geo_long'][label_id]),
+                    'author': int(self.labels['author'][label_id]),
+                    'views': int(self.labels['views'][label_id])
+                }
+                sdata.append(label)
+        return json.dumps(sdata)
 
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
@@ -218,11 +253,12 @@ class Live:
         bot.send_message(message.chat.id, label_text, reply_markup=keyboard)
         return
 
-    def my_list(self, user_id):
+    def my_list(self, user_id=None):
         result = []
         for label_id in self.labels['status_label'].keys():
-            if int(user_id) == int(self.labels['author'][label_id]):
+            if user_id and int(user_id) == int(self.labels['author'][label_id]):
                 result.append(int(label_id))
+
         return result
 
     # Выявить перекресные категории
@@ -372,7 +408,7 @@ class Live:
         result = []
         for key in sorted_list:
             result.append(key)
-            result.append(int(geo[key]*1000))
+            result.append(int(geo[key] * 1000))
         return result
 
     # Вывод поисковых результатов
@@ -741,6 +777,7 @@ class Live:
                 self.send_full_label(bot, call.message, label_id, True)
 
             bot.answer_callback_query(call.id)
+
         bot.polling()
 
 
