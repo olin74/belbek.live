@@ -118,7 +118,7 @@ class Live:
                                 'Продвижение']
 
         today = str(int(time.time()) - int(time.time()) % (3600 * 24))[:-3]
-        redis.from_url(redis_url_snapshot).set('snapshot-' + today, self.snapdata())
+        redis.from_url(redis_url_snapshot).set('snapshot-' + today, self.snap_data())
 
         # Чистка базы
         for field in self.labels:
@@ -130,8 +130,8 @@ class Live:
             if int(self.users['last_login'][user_id]) < int(time.time()) - TIME_OUT_USER:
                 self.labels['status_label'][label_id] = 0
 
-    def snapdata(self):
-        sdata = []
+    def snap_data(self):
+        s_data = []
         for label_id in self.labels['status_label'].keys():
             if int(self.labels['status_label'][label_id]) == 1:
                 label = {
@@ -145,8 +145,8 @@ class Live:
                     'author': int(self.labels['author'][label_id]),
                     'views': int(self.labels['views'][label_id])
                 }
-                sdata.append(label)
-        return json.dumps(sdata)
+                s_data.append(label)
+        return json.dumps(s_data)
 
     # Стартовое сообщение
     def go_start(self, bot, message, is_start=True):
@@ -666,8 +666,8 @@ class Live:
 
             # Обработка отправления координат текстом
             if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
-                location = {'longitude': float(message.text.split(',')[0]),
-                            'latitude': float(message.text.split(',')[1])}
+                location = {'latitude': float(message.text.split(',')[0]),
+                            'longitude': float(message.text.split(',')[1])}
                 self.go_location(bot, message, location)
                 return
             # Удаление сообщений не подошедших под ожидаемые нажатия кнопок
