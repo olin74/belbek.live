@@ -14,6 +14,7 @@ import os
 # Устанавливаем константы
 ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только Олин)
 ABOUT_LIMIT = 100  # Лимит символов в описании
+SYMBOL = "₽"  # Валюта текущей системы
 DESCRIPTION_LIMIT = 600  # Лимит символов в подробностях
 PRICE_LIMIT = 25  # Лимит символов в цене
 LIST_STEP = 10  # Результатов поиска за 1 раз
@@ -402,7 +403,6 @@ class Live:
                                     float(self.labels['geo_lat'][label_id]),
                                     float(self.labels['geo_long'][label_id]),
                                     )
-                # Если водитель рядом, то добавляем в результирующий список
                 geo[int(label_id)] = dist
         sorted_list = sorted(geo, key=geo.get)
         result = []
@@ -715,7 +715,9 @@ class Live:
                 label_id = int(call.data.split('_')[1])
                 long = float(self.labels['geo_long'][label_id])
                 lat = float(self.labels['geo_lat'][label_id])
-                bot.send_location(chat_id=call.message.chat.id, longitude=long, latitude=lat)
+                keyboard = types.InlineKeyboardMarkup()
+                keyboard.row(types.InlineKeyboardButton(text="кнопка", callback_data=f"button"))
+                bot.send_location(chat_id=call.message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
 
             # Меняем описание краткое
             if call.data[:3] == "abo":
