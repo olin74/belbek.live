@@ -65,7 +65,8 @@ class Live:
                       'username': redis.from_url(redis_url, db=8),
                       'search': redis.from_url(redis_url, db=9),
                       # 'labels': redis.from_url(redis_url, db=10),
-                      'last_login': redis.from_url(redis_url, db=11)
+                      'last_login': redis.from_url(redis_url, db=11),
+                      'message_id': redis.from_url(redis_url, db=12)
                       }
 
         # База данных меток
@@ -404,6 +405,7 @@ class Live:
                                     float(self.labels['geo_long'][label_id]),
                                     )
                 geo[int(label_id)] = dist
+        # return dist
         sorted_list = sorted(geo, key=geo.get)
         result = []
         for key in sorted_list:
@@ -715,9 +717,7 @@ class Live:
                 label_id = int(call.data.split('_')[1])
                 long = float(self.labels['geo_long'][label_id])
                 lat = float(self.labels['geo_lat'][label_id])
-                keyboard = types.InlineKeyboardMarkup()
-                keyboard.row(types.InlineKeyboardButton(text="кнопка", callback_data=f"button"))
-                bot.send_location(chat_id=call.message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
+                bot.send_location(chat_id=call.message.chat.id, longitude=long, latitude=lat)
 
             # Меняем описание краткое
             if call.data[:3] == "abo":
