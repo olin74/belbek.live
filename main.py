@@ -552,8 +552,8 @@ class Space:
             try:
                 bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, 'message_id')))
                 self.users.hdel(user_id, 'message_id')
-            finally:
-                pass
+            except Exception as error:
+                print("Error: ", error)
 
             bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
             welcome_text = f"Приветствую, %USERNAME%! Эта версия бота не так функциональна, как ты бы хотел видеть, " \
