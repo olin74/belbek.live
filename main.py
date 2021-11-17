@@ -154,6 +154,7 @@ class Space:
         cur_time = int(time.time())
 
         user_info = self.users.hgetall(user_id)
+        print(user_info)
         user_info['last_login'] = cur_time
         keyboard = types.InlineKeyboardMarkup()
 
@@ -536,7 +537,9 @@ class Space:
     def go_location(self, bot, message, location):
         user_id = message.chat.id
 
-        if int(self.users.hget(user_id, 'menu') == 7):
+        menu_geo_list = [7, 22]
+
+        if int(self.users.hget(user_id, 'menu') in menu_geo_list):
             self.users.hset(user_id, 'geo_lat', location['latitude'])
             self.users.hset(user_id, 'geo_long', location['longitude'])
             self.users.hset(user_id, 'parent_menu', 0)
