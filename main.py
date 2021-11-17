@@ -46,7 +46,7 @@ class Space:
 
         # Подгружаем из системы ссылки на базы данных
         redis_url = os.environ['REDIS_URL_SPACE']
-        redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
+        # redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
 
         # База данных пользователей
         self.users = redis.from_url(redis_url, db=1)
@@ -154,7 +154,7 @@ class Space:
         cur_time = int(time.time())
 
         user_info = self.users.hgetall(user_id)
-        print(user_info)
+        bot.send_message(user_id, user_info)
         user_info['last_login'] = cur_time
         keyboard = types.InlineKeyboardMarkup()
 
