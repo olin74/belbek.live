@@ -1,5 +1,6 @@
 FROM python:3.9
 EXPOSE 4000
+EXPOSE 5432
 RUN /usr/local/bin/python -m pip install --upgrade pip
 WORKDIR /usr/src/app
 COPY requirements.txt ./
