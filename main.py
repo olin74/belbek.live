@@ -287,16 +287,17 @@ class Space:
                                'Предыдущее', 'Выход', 'Следующее', 'Заново']
             keyboard_line = []
             message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
-            if user_id not in self.my_labels.keys():
-                keyboard.row(types.InlineKeyboardButton(text=menu_edit_items[0], callback_data=f"go_16"))
-            else:
+            if user_id in self.my_labels.keys():
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[1], callback_data=f"go_16"))
                 query = "SELECT * from labels WHERE id=%s"
                 label_id = self.get_label_id(user_id, item)
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
-                message_text = f"🏕 {item+1} из {self.my_labels.hlen(user_id)} Ваших мест\n\n" \
+                message_text = f"🏕 {item + 1} из {self.my_labels.hlen(user_id)} Ваших мест\n\n" \
                                f"🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
+
+            else:
+                keyboard.row(types.InlineKeyboardButton(text=menu_edit_items[0], callback_data=f"go_16"))
 
             keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[2], callback_data=f"go_8"))
 
@@ -864,7 +865,10 @@ class Space:
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 self.connection.commit()
-                self.my_labels.hdel(user_id, label_id)
+                if self.my_labels.hlen(user_id) == 1:
+                    self.my_labels.delete(user_id)
+                else:
+                    self.my_labels.hdel(user_id, label_id)
                 self.users.hset(user_id, b'item', 0)
                 self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
