@@ -91,6 +91,7 @@ class Space:
         9 author
         10 zoom
         11 time_added
+        12 username
         '''
 
         # Подгрузка категорий
@@ -120,7 +121,7 @@ class Space:
                     'geo_lat': row[6],
                     'geo_long': row[7],
                     'views': row[8],
-                    'author': f"@{self.users.hget(row[9], b'username').decode('utf-8')}"
+                    'author_tg_username': f"@{row[12]}"
                     }
             s_data.append(label)
         return json.dumps(s_data)
@@ -176,12 +177,12 @@ class Space:
             message_text = f"Места в долине {count_labels}, приглашаю начать поиск написав текст или нажав кнопку. "
             cat_s = 'Все сферы'
             if b'category' in user_info.keys():
-                cat_s = user_info[b'category'].decode['utf-8']
+                cat_s = user_info[b'category'].decode('utf-8')
             message_text = message_text + f"\n🌎 {cat_s}"
             if b'category' in user_info.keys():
                 sub_s = 'Все направления'
                 if b'category' in user_info.keys():
-                    sub_s = user_info[b'subcategory'].decode['utf-8']
+                    sub_s = user_info[b'subcategory'].decode('utf-8')
                 message_text = message_text + f"\n📚 {sub_s}"
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
@@ -351,10 +352,10 @@ class Space:
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.search.hlen(user_id)} результатов поиска\n"
                 if b'category' in user_info.keys():
-                    message_text = message_text + f"🌎 {user_info[b'category'].decode['utf-8']}\n"
+                    message_text = message_text + f"🌎 {user_info[b'category'].decode('utf-8')}\n"
                 if b'subcategory' in user_info.keys():
-                    message_text = message_text + f"📚 {user_info[b'subcategory'].decode['utf-8']}\n"
-                search_s = user_info[b'search_string'].decode['utf-8']
+                    message_text = message_text + f"📚 {user_info[b'subcategory'].decode('utf-8')}\n"
+                search_s = user_info[b'search_string'].decode('utf-8')
                 if len(search_s) > 0:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
                 message_text = message_text + f"\n🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
@@ -413,8 +414,11 @@ class Space:
                 menu_new_label_items = ['Изменить описание', 'Изменить локацию',
                                         'Изменить фотографии', 'Изменить направления',
                                         'Опубликовать', 'Отмена']
-                message_text = f"Тут информация о новом месте и данные о необходимости заполнить те или иные поля" \
-                               f" (геоданные стоят по-умолчанию ваши, осталось заполнить описание и категории)"
+                message_text = f"Вы публикуете новое место, Вам необходимо заполнить описание места " \
+                               f"(лимит  {ABOUT_LIMIT} символов и выбрать одно или несколько направлений." \
+                               f" По-умолчанию указана ваша текущая локация. Вы можете её изменить," \
+                               f" а также загрузить фотографии места."
+                about_text = "‼️ Необходимо заполнить ‼️"
                 keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
                                  types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20")]
                 keyboard.row(*keyboard_line)
@@ -451,14 +455,15 @@ class Space:
             user_info[b'item'] = 0
             message_text = "Новое место появилось в Belbek.Space !"
 
-            query = "INSERT INTO labels (about, subcategory, geo_lat, geo_long, author, time_added ) " \
-                    "VALUES (%s, %s, %s, %s, %s, %s)"
+            query = "INSERT INTO labels (about, subcategory, geo_lat, geo_long, author, time_added, username) " \
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)"
             self.cursor.execute(query, (self.new_label.hget(user_id, b'about').decode('utf-8'),
                                         json.loads(self.new_label.hget(user_id, b'subcategory_list').decode('utf-8')),
                                         float(self.new_label.hget(user_id, b'geo_lat')),
                                         float(self.new_label.hget(user_id, b'geo_long')),
                                         user_id,
-                                        cur_time))
+                                        cur_time,
+                                        self.users.hget(user_id, b'username').decode('utf-8')))
 
             self.connection.commit()
             query = "SELECT LASTVAL()"
@@ -717,7 +722,7 @@ class Space:
                             'longitude': float(message.text.split(',')[1])}
                 self.go_location(bot, message, location)
 
-            wtf_label = "Метка ✳️ - это точка на карте, в которой происходит производство или реализация" \
+            wtf_label = " Метка ✳️ - это точка на карте, в которой происходит производство или реализация" \
                         " ваших товаров и услуг." \
                         " Например, это может быть точка продажи хлеба, сдаваемая в аренду недвижимость," \
                         " студия массажа, или, в случае, если у" \
