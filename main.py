@@ -175,12 +175,12 @@ class Space:
             count_labels = self.cursor.fetchone()[0]
 
             message_text = f"Места в долине {count_labels}, приглашаю начать поиск написав текст или нажав кнопку. "
-            cat_s = 'Все сферы'
+            cat_s = '🌎 Все сферы 🌎'
             if b'category' in user_info.keys():
                 cat_s = user_info[b'category'].decode('utf-8')
             message_text = message_text + f"\n🌎 {cat_s}"
             if b'category' in user_info.keys():
-                sub_s = 'Все направления'
+                sub_s = '📚 Все направления 📚'
                 if b'subcategory' in user_info.keys():
                     sub_s = user_info[b'subcategory'].decode('utf-8')
                 message_text = message_text + f"\n📚 {sub_s}"
@@ -282,9 +282,8 @@ class Space:
                 self.new_label.delete(user_id)
             menu_edit_items = ['Как создавать места❓',
                                '❓', 'Новое место',
-                               'Изменить описание', 'Изменить локацию',
-                               'Изменить фотографии', 'Изменить направления', '🚮',
-                               'Предыдущее', 'Выход', 'Следующее', 'Заново']
+                               '📝', '🗺', '📸', '📚', '🚮',
+                               '⏪', 'Выход', '⏩', '🔄']
             keyboard_line = []
             message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
             if str(user_id).encode() in self.my_labels.keys():
@@ -305,10 +304,8 @@ class Space:
             keyboard.row(*keyboard_line)
             if str(user_id).encode() in self.my_labels.keys():
                 keyboard_line = [types.InlineKeyboardButton(text=menu_edit_items[3], callback_data=f"go_14"),
-                                 types.InlineKeyboardButton(text=menu_edit_items[4], callback_data=f"go_20")]
-
-                keyboard.row(*keyboard_line)
-                keyboard_line = [types.InlineKeyboardButton(text=menu_edit_items[5], callback_data=f"go_13"),
+                                 types.InlineKeyboardButton(text=menu_edit_items[4], callback_data=f"go_20"),
+                                 types.InlineKeyboardButton(text=menu_edit_items[5], callback_data=f"go_13"),
                                  types.InlineKeyboardButton(text=menu_edit_items[6], callback_data=f"go_3"),
                                  types.InlineKeyboardButton(text=menu_edit_items[7], callback_data=f"go_15")]
                 keyboard.row(*keyboard_line)
@@ -338,8 +335,8 @@ class Space:
         elif menu_id == 6:  # Меню просмотра результатов поиска
             user_info[b'parent_menu'] = menu_id
             menu_search_items = ['Хочу такси туда', 'Хочу доставку оттуда',
-                                 'Показать на карте', 'Показать фотографии',
-                                 'Предыдущее', 'Выход', 'Следующее', 'Заново']
+                                 '🗺', '📸',
+                                 '⏪', 'Выход', '⏩', '🔄']
             if user_id not in self.search.keys():
                 search_results = self.get_search_dict(message)
                 for label_id, dist in search_results.items():
@@ -414,22 +411,20 @@ class Space:
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
                 can_create = self.new_label.hexists(user_id, 'about') and \
                              self.new_label.hexists(user_id, 'subcategory_list')
-                menu_new_label_items = ['Изменить описание', 'Изменить локацию',
-                                        'Изменить фотографии', 'Изменить направления',
+                menu_new_label_items = ['📝', '🗺', '📸', '📚',
                                         'Опубликовать', 'Отмена']
-                about_text = "‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов ‼️"
+                about_text = f"‼️ Необходимо заполнить описание 📝 , лимит {ABOUT_LIMIT} символов ‼️"
                 if self.new_label.hexists(user_id, 'about'):
                     about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
 
-                cat_text = "‼️ Необходимо выбрать одно или несколько направлений ‼️"
+                cat_text = "‼️ Необходимо выбрать одно или несколько направлений 📚 ‼️"
                 if self.new_label.hexists(user_id, 'subcategory_list'):
                     cat_text = ','.join(json.loads(self.new_label.hget(user_id,
                                                                        'subcategory_list').decode('utf-8')))
                 message_text = f"📝 {about_text}\n📚 {cat_text}"
                 keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
-                                 types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20")]
-                keyboard.row(*keyboard_line)
-                keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[2], callback_data=f"go_13"),
+                                 types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20"),
+                                 types.InlineKeyboardButton(text=menu_new_label_items[2], callback_data=f"go_13"),
                                  types.InlineKeyboardButton(text=menu_new_label_items[3], callback_data=f"go_3")]
                 keyboard.row(*keyboard_line)
                 keyboard_line = []
@@ -621,7 +616,7 @@ class Space:
             bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
 
         elif menu_id == 23:  # Уведомление о смене локации
-            message_text = "Гуолокация подтвеждена"
+            message_text = "Геолокация подтвеждена"
             keyboard.row(types.InlineKeyboardButton(text=f"Ок", callback_data=f"go_{int(user_info[b'parent_menu'])}"))
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
