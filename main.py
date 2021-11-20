@@ -152,7 +152,6 @@ class Space:
         if menu_id == 0:  # Главное меню
             user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
-
             self.search.delete(user_id)
 
             user_info[b'search_string'] = ''
@@ -340,6 +339,7 @@ class Space:
                                  '⏪', '🆗', '⏩', '🔄']
             if str(user_id).encode() not in self.search.keys():
                 search_results = self.get_search_dict(message)
+                user_info[b'item'] = 0
                 for label_id, dist in search_results.items():
                     self.search.hset(user_id, label_id, dist)
 
