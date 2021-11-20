@@ -181,7 +181,7 @@ class Space:
             message_text = message_text + f"\n🌎 {cat_s}"
             if b'category' in user_info.keys():
                 sub_s = 'Все направления'
-                if b'category' in user_info.keys():
+                if b'subcategory' in user_info.keys():
                     sub_s = user_info[b'subcategory'].decode('utf-8')
                 message_text = message_text + f"\n📚 {sub_s}"
             try:
@@ -602,7 +602,7 @@ class Space:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
-        print(user_info)
+        # print(user_info)
         for key, val in user_info.items():
             self.users.hset(user_id, key, val)
 
@@ -859,10 +859,10 @@ class Space:
             bot.answer_callback_query(call.id)
 
         bot.polling()
-        try:
-            bot.polling()
-        except Exception as error:
-            print("Error polling: ", error)
+        #try:
+        #    bot.polling()
+        #except Exception as error:
+        #    print("Error polling: ", error)
 
 
 if __name__ == "__main__":
