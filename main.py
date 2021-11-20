@@ -108,7 +108,7 @@ class Space:
 
     def snap_data(self):
         s_data = []
-        query = "SELECT * from labels WHERE 1"
+        query = "SELECT * from labels"
         self.cursor.execute(query)
         while 1:
             row = self.cursor.fetchone()
@@ -614,7 +614,7 @@ class Space:
         # Перебираем все метки
         geo = {}
         # поиск по слову попозже будет
-        query = "SELECT * from labels WHERE 1"  # пересечение категорий ввести и поиск по слову!
+        query = "SELECT * from labels"  # пересечение категорий ввести и поиск по слову!
         self.cursor.execute(query)
         while 1:
             row = self.cursor.fetchone()
