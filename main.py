@@ -128,15 +128,17 @@ class Space:
 
     # получаем id места из базы по номеру в списке
     def get_label_id(self, user_id, item):
-        print (user_id, item, self.users.hget(user_id, b'parent_menu'))
-        print (self.my_labels.hgetall(user_id))
-        if int(self.users.hget(user_id, b'parent_menu')) == 5:
-            my_labels_dict = self.my_labels.hgetall(user_id)
-            sorted_list = sorted(my_labels_dict, key=my_labels_dict.get, reverse=True)
-            return int(sorted_list[item])
-        if int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 6:
-            my_search_dict = self.search.hgetall(str(user_id).encode())
+        print(user_id, item, self.users.hget(user_id, b'parent_menu'))
+        print(self.my_labels.hgetall(user_id))
+
+        if int(self.users.hget(user_id, b'parent_menu')) == 6:
+            my_search_dict = self.search.hgetall(user_id)
             return int(sorted(my_search_dict, key=my_search_dict.get)[item])
+
+        my_labels_dict = self.my_labels.hgetall(user_id)
+        sorted_list = sorted(my_labels_dict, key=my_labels_dict.get, reverse=True)
+        return int(sorted_list[item])
+
 
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
