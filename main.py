@@ -151,6 +151,7 @@ class Space:
 
         if menu_id == 0:  # Главное меню
             self.users.hset(user_id, b'parent_menu', menu_id)
+            user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
             self.search.delete(user_id)
 
@@ -278,6 +279,7 @@ class Space:
 
         elif menu_id == 5:  # Меню редактирования
             self.users.hset(user_id, b'parent_menu', menu_id)
+            user_info[b'parent_menu'] = menu_id
             item = int(user_info[b'item'])
             self.new_label.delete(user_id)
             menu_edit_items = ['Как создавать места❓',
@@ -334,6 +336,7 @@ class Space:
 
         elif menu_id == 6:  # Меню просмотра результатов поиска
             self.users.hset(user_id, b'parent_menu', menu_id)
+            user_info[b'parent_menu'] = menu_id
             menu_search_items = ['🚕➡️⛺️', '⬅️🚕⛺️',
                                  '🗺', '📸',
                                  '⏪', '🆗', '⏩', '🔄']
@@ -409,6 +412,7 @@ class Space:
             if message.chat.username is not None:
                 self.users.hset(user_id, b'username', message.chat.username)
                 self.users.hset(user_id, b'parent_menu', menu_id)
+                user_info[b'parent_menu'] = menu_id
                 if str(user_id).encode() not in self.new_label.keys():
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
