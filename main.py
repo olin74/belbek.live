@@ -139,7 +139,6 @@ class Space:
         sorted_list = sorted(my_labels_dict, key=my_labels_dict.get, reverse=True)
         return int(sorted_list[item])
 
-
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
         user_id = message.chat.id
@@ -366,6 +365,7 @@ class Space:
                 if len(search_s) > 0:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
                 message_text = message_text + f"\n🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
+                                              f"🚙 {float(self.search.hget(user_id, label_id)):.1f} км" \
                                               f"💬 @{self.users.hget(row[9], b'username').decode('utf-8')}"
 
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_13"),
