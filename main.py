@@ -153,7 +153,7 @@ class Space:
             user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
 
-            if user_id in self.search:
+            if str(user_id).encode() in self.search:
                 self.search.delete(user_id)
             user_info[b'search_string'] = ''
 
@@ -236,7 +236,7 @@ class Space:
                 selected_cats = row[0]
 
             banned_cats = []  # Список категорий других мест пользователя
-            if user_id in self.my_labels.keys():
+            if str(user_id).encode() in self.my_labels.keys():
                 user_labels = self.my_labels.hgetall(user_id)
                 query = "SELECT subcategory from labels WHERE id=%s"
                 for label_id in user_labels.keys():
@@ -280,7 +280,7 @@ class Space:
         elif menu_id == 5:  # Меню редактирования
             user_info[b'parent_menu'] = menu_id
             item = int(user_info[b'item'])
-            if user_id in self.new_label.keys():
+            if str(user_id).encode() in self.new_label.keys():
                 self.new_label.delete(user_id)
             menu_edit_items = ['Как создавать места❓',
                                '❓', 'Новое место',
@@ -288,7 +288,7 @@ class Space:
                                '⏪', '🆗', '⏩', '🔄']
             keyboard_line = []
             message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
-            if user_id in self.my_labels.keys():
+            if str(user_id).encode() in self.my_labels.keys():
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[1], callback_data=f"go_16"))
                 query = "SELECT * from labels WHERE id = %s"
                 label_id = self.get_label_id(user_id, item)
@@ -304,7 +304,7 @@ class Space:
             keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[2], callback_data=f"go_8"))
 
             keyboard.row(*keyboard_line)
-            if user_id in self.my_labels.keys():
+            if str(user_id).encode() in self.my_labels.keys():
                 keyboard_line = [types.InlineKeyboardButton(text=menu_edit_items[3], callback_data=f"go_14"),
                                  types.InlineKeyboardButton(text=menu_edit_items[4], callback_data=f"go_20"),
                                  types.InlineKeyboardButton(text=menu_edit_items[5], callback_data=f"go_13"),
@@ -317,7 +317,7 @@ class Space:
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[8],
                                                                 callback_data=f"select_{item-1}"))
             keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[9], callback_data=f"go_0"))
-            if user_id in self.my_labels.keys():
+            if str(user_id).encode() in self.my_labels.keys():
 
                 if item < self.my_labels.hlen(user_id) - 1:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[10],
@@ -345,7 +345,7 @@ class Space:
                     self.search.hset(user_id, label_id, dist)
 
             message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
-            if user_id in self.search.keys():
+            if str(user_id).encode() in self.search.keys():
                 item = int(user_info[b'item'])
                 query = "SELECT * from labels WHERE id=%s"
                 label_id = self.get_label_id(user_id, item)
