@@ -128,9 +128,6 @@ class Space:
 
     # получаем id места из базы по номеру в списке
     def get_label_id(self, user_id, item):
-        print(user_id, item, self.users.hget(user_id, b'parent_menu'))
-        print(self.my_labels.hgetall(user_id))
-
         if int(self.users.hget(user_id, b'parent_menu')) == 6:
             my_search_dict = self.search.hgetall(user_id)
             return int(sorted(my_search_dict, key=my_search_dict.get)[item])
@@ -144,7 +141,7 @@ class Space:
         user_id = message.chat.id
         cur_time = int(time.time())
 
-        user_info = self.users.hgetall(str(user_id).encode())
+        user_info = self.users.hgetall(user_id)
 
         user_info[b'last_login'] = cur_time
         keyboard = types.InlineKeyboardMarkup()
@@ -207,7 +204,7 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 2:  # Выбор направления
-            cat = self.users.hget(str(user_id).encode(), b'category').decode('utf-8')
+            cat = self.users.hget(user_id, b'category').decode('utf-8')
             for sub in self.categories[cat]:
                 keyboard.row(types.InlineKeyboardButton(text=sub, callback_data=f"usub_{sub}"))
             keyboard.row(types.InlineKeyboardButton(text="Все направления", callback_data=f"dsub"))
@@ -226,7 +223,7 @@ class Space:
             temp_label_id = -1
             if int(user_info[b'parent_menu']) == 8:
 
-                sub_list = self.new_label.hget(str(user_id).encode(), b'subcategory_list')
+                sub_list = self.new_label.hget(user_id, b'subcategory_list')
                 if sub_list is not None:
                     selected_cats = json.loads(sub_list.decode('utf-8'))
             else:
@@ -238,7 +235,7 @@ class Space:
 
             banned_cats = []  # Список категорий других мест пользователя
             if str(user_id).encode() in self.my_labels.keys():
-                user_labels = self.users.hgetall(str(user_id).encode())
+                user_labels = self.users.hgetall(user_id)
                 query = "SELECT subcategory from labels WHERE id=%s"
                 for label_id in user_labels.keys():
                     if int(label_id) != temp_label_id:
@@ -297,7 +294,6 @@ class Space:
 
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
-                print(query, label_id, row)
                 message_text = f"🏕 {item + 1} из {self.my_labels.hlen(user_id)} Ваших мест\n\n" \
                                f"🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
 
@@ -365,7 +361,7 @@ class Space:
                 if len(search_s) > 0:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
                 message_text = message_text + f"\n🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
-                                              f"🚙 {float(self.search.hget(user_id, label_id)):.1f} км" \
+                                              f"🚙 {float(self.search.hget(user_id, label_id)):.1f} км\n" \
                                               f"💬 @{self.users.hget(row[9], b'username').decode('utf-8')}"
 
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_13"),
@@ -414,20 +410,20 @@ class Space:
                 self.users.hset(user_id, b'username', message.chat.username)
                 user_info[b'parent_menu'] = menu_id
                 if user_id not in self.new_label.keys():
-                    self.new_label.hset(user_id, b'geo_lat', self.users.hget(str(user_id).encode(), b'geo_lat'))
-                    self.new_label.hset(user_id, b'geo_long', self.users.hget(str(user_id).encode(), b'geo_long'))
-                can_create = self.new_label.hexists(str(user_id).encode(), 'about') and \
-                             self.new_label.hexists(str(user_id).encode(), 'subcategory_list')
+                    self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
+                    self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
+                can_create = self.new_label.hexists(user_id, 'about') and \
+                             self.new_label.hexists(user_id, 'subcategory_list')
                 menu_new_label_items = ['Изменить описание', 'Изменить локацию',
                                         'Изменить фотографии', 'Изменить направления',
                                         'Опубликовать', 'Отмена']
                 about_text = "‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов ‼️"
-                if self.new_label.hexists(str(user_id).encode(), 'about'):
-                    about_text = self.new_label.hget(str(user_id).encode(), 'about').decode('utf-8')
+                if self.new_label.hexists(user_id, 'about'):
+                    about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
 
                 cat_text = "‼️ Необходимо выбрать одно или несколько направлений ‼️"
-                if self.new_label.hexists(str(user_id).encode(), 'subcategory_list'):
-                    cat_text = ','.join(json.loads(self.new_label.hget(str(user_id).encode(),
+                if self.new_label.hexists(user_id, 'subcategory_list'):
+                    cat_text = ','.join(json.loads(self.new_label.hget(user_id,
                                                                        'subcategory_list').decode('utf-8')))
                 message_text = f"📝 {about_text}\n📚 {cat_text}"
                 keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
@@ -468,14 +464,14 @@ class Space:
 
             query = "INSERT INTO labels (about, subcategory, geo_lat, geo_long, author, time_added, username) " \
                     "VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            self.cursor.execute(query, (self.new_label.hget(str(user_id).encode(), b'about').decode('utf-8'),
-                                        json.loads(self.new_label.hget(str(user_id).encode(),
+            self.cursor.execute(query, (self.new_label.hget(user_id, b'about').decode('utf-8'),
+                                        json.loads(self.new_label.hget(user_id,
                                                                        b'subcategory_list').decode('utf-8')),
-                                        float(self.new_label.hget(str(user_id).encode(), b'geo_lat')),
-                                        float(self.new_label.hget(str(user_id).encode(), b'geo_long')),
+                                        float(self.new_label.hget(user_id, b'geo_lat')),
+                                        float(self.new_label.hget(user_id, b'geo_long')),
                                         user_id,
                                         cur_time,
-                                        self.users.hget(str(user_id).encode(), b'username').decode('utf-8')))
+                                        self.users.hget(user_id, b'username').decode('utf-8')))
 
             self.connection.commit()
             query = "SELECT LASTVAL()"
@@ -523,8 +519,24 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 14:  # Изменение описания места
-            message_text = f"Тут описание вашего места, но вы можете написать новое\n" \
-                           f"{user_info[b'last_login']}"  # пока нет базы"
+            message_text = f"Описание вашего места:\n"
+
+            if int(self.users.hget(user_id, b'parent_menu')) == 5:
+                label_id = self.get_label_id(user_id, int(user_info[b'item']))
+                query = "SELECT about from labels WHERE id = %s"
+                self.cursor.execute(query, (label_id,))
+                row = self.cursor.fetchone()
+                message_text = message_text + row[0]
+
+            elif int(self.users.hget(user_id, b'parent_menu')) == 8:
+
+                if self.new_label.hexists(user_id, b'about'):
+                    message_text = message_text + self.new_label.hget(user_id, b'about').decode('utf-8')
+                else:
+                    message_text = message_text + " 🤷🏽 пусто!  "
+
+            message_text = message_text + "\n\n Отправьте текстом новое описание или нажмите 'Готово'"
+
             keyboard.row(types.InlineKeyboardButton(text=f"Готово",
                                                     callback_data=f"go_{int(user_info[b'parent_menu'])}"))
             try:
@@ -622,7 +634,7 @@ class Space:
     def get_search_dict(self, message):
 
         user_id = message.chat.id
-        user_info = self.users.hgetall(str(user_id).encode())
+        user_info = self.users.hgetall(user_id)
         # Перебираем все метки
         geo = {}
         # поиск по слову попозже будет
@@ -654,13 +666,13 @@ class Space:
     # Получены координаты тем или иным образом
     def go_location(self, bot, message, location):
         user_id = message.chat.id
-        if int(self.users.hget(str(user_id).encode(), b'menu')) in [7, 22]:
-            if int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 5:
-                label_id = self.get_label_id(user_id, int(self.users.hget(str(user_id).encode(), b'item')))
+        if int(self.users.hget(user_id, b'menu')) in [7, 22]:
+            if int(self.users.hget(user_id, b'parent_menu')) == 5:
+                label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
                 query = "UPDATE labels SET geo_lat = %s, geo_long = %s WHERE id = %s"
                 self.cursor.execute(query, (location['latitude'], location['longitude'], label_id))
                 self.connection.commit()
-            elif int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 8:
+            elif int(self.users.hget(user_id, b'parent_menu')) == 8:
                 self.new_label.hset(user_id, b'geo_lat', location['latitude'])
                 self.new_label.hset(user_id, b'geo_long', location['longitude'])
             else:
@@ -686,7 +698,7 @@ class Space:
 
             try:
                 bot.delete_message(chat_id=message.chat.id,
-                                   message_id=int(self.users.hget(str(user_id).encode(), b'message_id')))
+                                   message_id=int(self.users.hget(user_id, b'message_id')))
             except Exception as e:
                 print("Error: ", e)
             for i in range(3):
@@ -702,7 +714,7 @@ class Space:
             keyboard = types.InlineKeyboardMarkup()
             self.users.hset(user_id, b'menu', -1)
 
-            if not self.users.hexists(str(user_id).encode(), b'clean_id'):
+            if not self.users.hexists(user_id, b'clean_id'):
                 self.users.hset(user_id, b'clean_id', 0)
             keyboard.row(types.InlineKeyboardButton(text=f"Хорошо, приступим!", callback_data=f"go_7"))
             bot.send_message(user_id, welcome_text, reply_markup=keyboard)
@@ -711,7 +723,7 @@ class Space:
         @bot.message_handler(commands=['cancel'])
         def cancel_message(message):
             user_id = message.chat.id
-            if int(self.users.hget(str(user_id).encode(), b'menu')) == 22:
+            if int(self.users.hget(user_id, b'menu')) == 22:
                 self.go_menu(bot, message, 20)
             bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
 
@@ -721,21 +733,25 @@ class Space:
             user_id = message.chat.id
 
             # Введена строка для поиска
-            if int(self.users.hget(str(user_id).encode(), b'menu')) == 0:
+            if int(self.users.hget(user_id, b'menu')) == 0:
                 self.users.hset(user_id, b'search_string', message.text)
                 self.go_menu(bot, message, 6)
 
             # Введена описание
-            if int(self.users.hget(str(user_id).encode(), b'menu')) == 14:
+            if int(self.users.hget(user_id, b'menu')) == 14:
                 about = message.text[:ABOUT_LIMIT]
-                if int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 5:
-                    label_id = self.get_label_id(user_id, int(self.users.hget(str(user_id).encode(), b'item')))
+                if int(self.users.hget(user_id, b'parent_menu')) == 5:
+                    label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
                     query = "UPDATE labels SET about = %s WHERE id = %s"
                     self.cursor.execute(query, (about, label_id))
                     self.connection.commit()
-                elif int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 8:
+                elif int(self.users.hget(user_id, b'parent_menu')) == 8:
                     self.new_label.hset(user_id, b'about', about)
-
+                try:
+                    bot.delete_message(chat_id=message.chat.id,
+                                       message_id=int(self.users.hget(user_id, b'message_id')))
+                except Exception as e:
+                    print("Error: ", e)
                 self.go_menu(bot, message, 14)
 
             # Обработка отправления координат текстом
@@ -785,7 +801,7 @@ class Space:
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
 
             # Чистим старые сообщения
-            message_id_clean = int(self.users.hget(str(user_id).encode(), b'clean_id'))
+            message_id_clean = int(self.users.hget(user_id, b'clean_id'))
             while message_id_clean < call.message.message_id - 1:
                 message_id_clean += 1
                 try:
@@ -808,45 +824,45 @@ class Space:
                 category = call.data.split('_')[1]
                 self.users.hdel(user_id, b'subcategory')
                 self.users.hset(user_id, b'category', category)
-                self.go_menu(bot, call.message, int(self.users.hget(str(user_id).encode(), b'parent_menu')))
+                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
             # Выбираем все сферы для поиска
             if call.data == "dcat":
                 self.users.hdel(user_id, b'category')
                 self.users.hdel(user_id, b'subcategory')
-                self.go_menu(bot, call.message, int(self.users.hget(str(user_id).encode(), b'parent_menu')))
+                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
             # Выбираем направление для поиска
             if call.data[:4] == "usub":
                 subcategory = call.data.split('_')[1]
                 self.users.hset(user_id, b'subcategory', subcategory)
-                self.go_menu(bot, call.message, int(self.users.hget(str(user_id).encode(), b'parent_menu')))
+                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
             # Выбираем все направления для поиска
             if call.data == "dsub":
                 self.users.hdel(user_id, b'subcategory')
-                self.go_menu(bot, call.message, int(self.users.hget(str(user_id).encode(), b'parent_menu')))
+                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
             # Выбран item
             if call.data[:6] == "select":
                 new_item = call.data.split('_')[1]
                 self.users.hset(user_id, b'item', new_item)
-                self.go_menu(bot, call.message, int(self.users.hget(str(user_id).encode(), b'parent_menu')))
+                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
             # Отмечена подкатегория
             if call.data[:4] == "lcat":
                 cat = call.data.split('_')[1]
 
                 categories = []  # Извлекаем список направлений у метки
-                if int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 5:
-                    label_id = self.get_label_id(user_id, int(self.users.hget(str(user_id).encode(), b'item')))
+                if int(self.users.hget(user_id, b'parent_menu')) == 5:
+                    label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
                     query = "SELECT subcategory FROM labels WHERE id = %s"
                     self.cursor.execute(query, (label_id,))
                     row = self.cursor.fetchone()
                     categories = row[0]
-                elif int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 8:
-                    if self.new_label.hexists(str(user_id).encode(), b'subcategory_list'):
-                        categories = json.loads(self.new_label.hget(str(user_id).encode(),
+                elif int(self.users.hget(user_id, b'parent_menu')) == 8:
+                    if self.new_label.hexists(user_id, b'subcategory_list'):
+                        categories = json.loads(self.new_label.hget(user_id,
                                                                     b'subcategory_list').decode('utf-8'))
 
                 if cat in categories:
@@ -855,13 +871,13 @@ class Space:
                     categories.append(cat)
 
                 # Сохраняем список направлений
-                if int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 5:
+                if int(self.users.hget(user_id, b'parent_menu')) == 5:
                     if len(categories) > 0:
-                        label_id = self.get_label_id(user_id, int(self.users.hget(str(user_id).encode(), b'item')))
+                        label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
                         query = "UPDATE labels SET subcategory = %s WHERE id = %s"
                         self.cursor.execute(query, (categories, label_id))
                         self.connection.commit()
-                elif int(self.users.hget(str(user_id).encode(), b'parent_menu')) == 8:
+                elif int(self.users.hget(user_id, b'parent_menu')) == 8:
                     if len(categories) > 0:
                         self.new_label.hset(user_id, b'subcategory_list', json.dumps(categories))
                     else:
@@ -871,7 +887,7 @@ class Space:
 
             if call.data == "del_label":
                 # Удаляю место из базы и из списка меток пользователя
-                label_id = self.get_label_id(user_id, int(self.users.hget(str(user_id).encode(), b'item')))
+                label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 self.connection.commit()
@@ -880,7 +896,7 @@ class Space:
                 else:
                     self.my_labels.hdel(user_id, label_id)
                 self.users.hset(user_id, b'item', 0)
-                self.go_menu(bot, call.message, int(self.users.hget(str(user_id).encode(), b'parent_menu')))
+                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
             bot.answer_callback_query(call.id)
 
