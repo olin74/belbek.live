@@ -153,8 +153,8 @@ class Space:
             user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
 
+            self.search.delete(str(user_id).encode())
 
-            self.search.delete(user_id)
             user_info[b'search_string'] = ''
 
             # Кнопки меню
