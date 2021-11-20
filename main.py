@@ -223,7 +223,7 @@ class Space:
             temp_label_id = -1
             if int(user_info[b'parent_menu']) == 8:
 
-                sub_list = self.new_label.hget(b'subcategory_list')
+                sub_list = self.new_label.hget(user_id, b'subcategory_list')
                 if sub_list is not None:
                     selected_cats = json.loads(sub_list.decode('utf-8'))
             else:
