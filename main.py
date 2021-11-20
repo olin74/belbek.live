@@ -809,7 +809,7 @@ class Space:
                     bot.delete_message(chat_id=call.message.chat.id, message_id=message_id_clean)
                 except Exception as e:
                     print("Error: ", e)
-            self.users.hset(user_id, b'clean_id', message_id_clean)  # Фиксируем ID сообщения
+            self.users.hset(user_id, b'clean_id', call.message.message_id - 1)  # Фиксируем ID сообщения
 
             # Передаём управление главной функции
             if call.data[:2] == "go":
