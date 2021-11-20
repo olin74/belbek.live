@@ -473,14 +473,14 @@ class Space:
                                         cur_time,
                                         self.users.hget(user_id, b'username').decode('utf-8')))
 
-            row = self.cursor.fetchone()
+
             self.connection.commit()
 
+            query = "SELECT LASTVAL()"
+            self.cursor.execute(query)
+            row = self.cursor.fetchone()
             print(row)
             label_id = row[0]
-            # query = "SELECT LASTVAL()"
-            # self.cursor.execute(query)
-
             self.my_labels.hset(user_id, label_id, cur_time)
 
             keyboard.row(types.InlineKeyboardButton(text="Замечательно", callback_data=f"go_5"))
