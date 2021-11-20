@@ -221,13 +221,13 @@ class Space:
             selected_cats = []  # Список категорий выбранного места
 
             temp_label_id = -1
-            if int(user_info(b'parent_menu')) == 8:
+            if int(user_info[b'parent_menu']) == 8:
 
                 sub_list = self.new_label.hget(b'subcategory_list')
                 if sub_list is not None:
                     selected_cats = json.loads(sub_list.decode('utf-8'))
             else:
-                temp_label_id = self.get_label_id(user_id, int(user_info(b'item')))
+                temp_label_id = self.get_label_id(user_id, int(user_info[b'item']))
                 query = "SELECT subcategory from labels WHERE id=%s"
                 self.cursor.execute(query, (temp_label_id,))
                 row = self.cursor.fetchone()
