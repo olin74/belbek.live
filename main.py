@@ -846,7 +846,7 @@ class Space:
 
             # Выбран item
             if call.data[:6] == "select":
-                new_item = call.data.split('_')[1]
+                new_item = int(call.data.split('_')[1])
                 self.users.hset(user_id, b'item', new_item)
                 self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
