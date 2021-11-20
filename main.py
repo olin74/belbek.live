@@ -128,6 +128,8 @@ class Space:
 
     # получаем id места из базы по номеру в списке
     def get_label_id(self, user_id, item):
+        print (user_id, item, self.users.hget(user_id, b'parent_menu'))
+        print (self.my_labels.hgetall(user_id))
         if int(self.users.hget(user_id, b'parent_menu')) == 5:
             my_labels_dict = self.my_labels.hgetall(user_id)
             sorted_list = sorted(my_labels_dict, key=my_labels_dict.get, reverse=True)
