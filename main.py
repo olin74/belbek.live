@@ -153,7 +153,7 @@ class Space:
             user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
 
-            self.search.delete(str(user_id).encode())
+            self.search.delete(user_id)
 
             user_info[b'search_string'] = ''
 
@@ -345,6 +345,7 @@ class Space:
 
             message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
             if str(user_id).encode() in self.search.keys():
+                print (self.search.hgetall(user_id))
                 item = int(user_info[b'item'])
                 query = "SELECT * from labels WHERE id=%s"
                 label_id = self.get_label_id(user_id, item)
