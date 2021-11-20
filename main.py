@@ -414,11 +414,14 @@ class Space:
                 menu_new_label_items = ['Изменить описание', 'Изменить локацию',
                                         'Изменить фотографии', 'Изменить направления',
                                         'Опубликовать', 'Отмена']
-                message_text = f"Вы публикуете новое место, Вам необходимо заполнить описание места " \
-                               f"(лимит  {ABOUT_LIMIT} символов и выбрать одно или несколько направлений." \
-                               f" По-умолчанию указана ваша текущая локация. Вы можете её изменить," \
-                               f" а также загрузить фотографии места."
-                about_text = "‼️ Необходимо заполнить ‼️"
+                about_text = "‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов ‼️"
+                if self.new_label.hexists(user_id, 'about'):
+                    about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
+
+                cat_text = "‼️ Необходимо выбрать одно или несколько направлений ‼️"
+                if self.new_label.hexists(user_id, 'subcategory_list'):
+                    cat_text = ','.join(json.loads(self.new_label.hget(user_id, 'subcategory_list').decode('utf-8')))
+                message_text = f"📝 {about_text}\n📚 {cat_text}"
                 keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
                                  types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20")]
                 keyboard.row(*keyboard_line)
