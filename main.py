@@ -345,10 +345,11 @@ class Space:
 
             message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
             if str(user_id).encode() in self.search.keys():
-                print (self.search.hgetall(user_id))
+
                 item = int(user_info[b'item'])
                 query = "SELECT * from labels WHERE id=%s"
                 label_id = self.get_label_id(user_id, item)
+                print(self.search.hgetall(user_id), label_id)
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.search.hlen(user_id)} результатов поиска\n"
