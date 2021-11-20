@@ -150,7 +150,7 @@ class Space:
         user_info[b'menu'] = menu_id
 
         if menu_id == 0:  # Главное меню
-            user_info[b'parent_menu'] = menu_id
+            self.users.hset(user_id, b'parent_menu', menu_id)
             user_info[b'item'] = 0
             self.search.delete(user_id)
 
@@ -277,7 +277,7 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 5:  # Меню редактирования
-            user_info[b'parent_menu'] = menu_id
+            self.users.hset(user_id, b'parent_menu', menu_id)
             item = int(user_info[b'item'])
             self.new_label.delete(user_id)
             menu_edit_items = ['Как создавать места❓',
@@ -333,7 +333,7 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 6:  # Меню просмотра результатов поиска
-            user_info[b'parent_menu'] = menu_id
+            self.users.hset(user_id, b'parent_menu', menu_id)
             menu_search_items = ['🚕➡️⛺️', '⬅️🚕⛺️',
                                  '🗺', '📸',
                                  '⏪', '🆗', '⏩', '🔄']
@@ -349,7 +349,7 @@ class Space:
                 item = int(user_info[b'item'])
                 query = "SELECT * from labels WHERE id=%s"
                 label_id = self.get_label_id(user_id, item)
-                print(self.search.hgetall(user_id), label_id)
+                print(self.search.hgetall(user_id), item)
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.search.hlen(user_id)} результатов поиска\n"
@@ -408,7 +408,7 @@ class Space:
         elif menu_id == 8:  # Меню создания нового места
             if message.chat.username is not None:
                 self.users.hset(user_id, b'username', message.chat.username)
-                user_info[b'parent_menu'] = menu_id
+                self.users.hset(user_id, b'parent_menu', menu_id)
                 if str(user_id).encode() not in self.new_label.keys():
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
