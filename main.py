@@ -637,8 +637,8 @@ class Space:
             if b'category' not in user_info.keys() or user_info[b'category'].decode('utf-8') in label_cat_list:
                 if b'subcategory' not in user_info.keys() or \
                         user_info[b'subcategory'].decode('utf-8') in label_sub_list:
-                    geo[int(label_id)] = get_distance(float(user_info['geo_lat']),
-                                                      float(user_info['geo_long']),
+                    geo[int(label_id)] = get_distance(float(user_info[b'geo_lat']),
+                                                      float(user_info[b'geo_long']),
                                                       row[6], row[7])
         return geo
 
