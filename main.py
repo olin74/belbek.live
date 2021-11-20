@@ -289,10 +289,12 @@ class Space:
             message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
             if str(user_id).encode() in self.my_labels.keys():
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[1], callback_data=f"go_16"))
-                query = "SELECT * from labels WHERE id=%s"
+                query = "SELECT * from labels WHERE id = %s"
                 label_id = self.get_label_id(user_id, item)
+
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
+                print(query, label_id, row)
                 message_text = f"🏕 {item + 1} из {self.my_labels.hlen(user_id)} Ваших мест\n\n" \
                                f"🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
 
