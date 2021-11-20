@@ -295,7 +295,7 @@ class Space:
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.my_labels.hlen(user_id)} Ваших мест\n\n" \
-                               f"🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
+                               f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
 
             else:
                 keyboard.row(types.InlineKeyboardButton(text=menu_edit_items[0], callback_data=f"go_16"))
@@ -360,7 +360,7 @@ class Space:
                 search_s = user_info[b'search_string'].decode('utf-8')
                 if len(search_s) > 0:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
-                message_text = message_text + f"\n🆔{row[0]} 📝 {row[1]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
+                message_text = message_text + f"\n📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
                                               f"🚙 {float(self.search.hget(user_id, label_id)):.1f} км\n" \
                                               f"💬 @{self.users.hget(row[9], b'username').decode('utf-8')}"
 
