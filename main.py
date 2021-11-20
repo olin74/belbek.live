@@ -473,8 +473,9 @@ class Space:
                                         cur_time,
                                         self.users.hget(user_id, b'username').decode('utf-8')))
 
-            self.connection.commit()
             row = self.cursor.fetchone()
+            self.connection.commit()
+
             print(row)
             label_id = row[0]
             # query = "SELECT LASTVAL()"
