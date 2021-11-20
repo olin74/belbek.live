@@ -666,6 +666,15 @@ class Space:
         @bot.message_handler(commands=['start'])
         def start_message(message):
             user_id = message.chat.id
+
+            query = "SELECT id, time_added from labels WHERE author = %s"
+            self.cursor.execute(query, (user_id,))
+            while 1:
+                row = self.cursor.fetchone()
+                if row is None:
+                    break
+                self.my_labels.hset(user_id, row[0], row[1])
+
             try:
                 bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
             except Exception as e:
