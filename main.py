@@ -153,8 +153,8 @@ class Space:
             user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
 
-            if str(user_id).encode() in self.search.keys():
-                self.search.delete(user_id)
+
+            self.search.delete(user_id)
             user_info[b'search_string'] = ''
 
             # Кнопки меню
@@ -280,8 +280,7 @@ class Space:
         elif menu_id == 5:  # Меню редактирования
             user_info[b'parent_menu'] = menu_id
             item = int(user_info[b'item'])
-            if str(user_id).encode() in self.new_label.keys():
-                self.new_label.delete(user_id)
+            self.new_label.delete(user_id)
             menu_edit_items = ['Как создавать места❓',
                                '❓', 'Новое место',
                                '📝', '🗺', '📸', '📚', '❌',
@@ -800,7 +799,6 @@ class Space:
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
 
-            '''
             # Чистим старые сообщения
             message_id_clean = int(self.users.hget(user_id, b'clean_id'))
             while message_id_clean < call.message.message_id - 1:
@@ -810,7 +808,6 @@ class Space:
                 except Exception as e:
                     print("Error: ", e)
             self.users.hset(user_id, b'clean_id', message_id_clean)  # Фиксируем ID сообщения
-            '''
 
             # Передаём управление главной функции
             if call.data[:2] == "go":
