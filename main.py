@@ -153,7 +153,7 @@ class Space:
             user_info[b'parent_menu'] = menu_id
             user_info[b'item'] = 0
 
-            if str(user_id).encode() in self.search:
+            if str(user_id).encode() in self.search.keys():
                 self.search.delete(user_id)
             user_info[b'search_string'] = ''
 
