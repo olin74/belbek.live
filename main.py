@@ -235,7 +235,7 @@ class Space:
 
             banned_cats = []  # Список категорий других мест пользователя
             if str(user_id).encode() in self.my_labels.keys():
-                user_labels = self.users.hgetall(user_id)
+                user_labels = self.my_labels.hgetall(user_id)
                 query = "SELECT subcategory from labels WHERE id=%s"
                 for label_id in user_labels.keys():
                     if int(label_id) != temp_label_id:
