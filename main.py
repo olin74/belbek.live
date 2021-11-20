@@ -826,7 +826,7 @@ class Space:
                     row = self.cursor.fetchone()
                     categories = row[0]
                 elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                    if self.new_label.hexist(user_id, b'subcategory_list'):
+                    if self.new_label.hexists(user_id, b'subcategory_list'):
                         categories = json.loads(self.new_label.hget(user_id, b'subcategory_list').decode('utf-8'))
 
                 if cat in categories:
