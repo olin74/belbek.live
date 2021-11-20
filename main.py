@@ -474,9 +474,12 @@ class Space:
                                         self.users.hget(user_id, b'username').decode('utf-8')))
 
             self.connection.commit()
-            query = "SELECT LASTVAL()"
-            self.cursor.execute(query)
-            label_id = self.cursor.fetchone()[0]
+            row = self.cursor.fetchone()
+            print(row)
+            label_id = row[0]
+            # query = "SELECT LASTVAL()"
+            # self.cursor.execute(query)
+
             self.my_labels.hset(user_id, label_id, cur_time)
 
             keyboard.row(types.InlineKeyboardButton(text="Замечательно", callback_data=f"go_5"))
@@ -800,6 +803,7 @@ class Space:
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
 
+            '''
             # Чистим старые сообщения
             message_id_clean = int(self.users.hget(user_id, b'clean_id'))
             while message_id_clean < call.message.message_id - 1:
@@ -809,6 +813,7 @@ class Space:
                 except Exception as e:
                     print("Error: ", e)
             self.users.hset(user_id, b'clean_id', message_id_clean)  # Фиксируем ID сообщения
+            '''
 
             # Передаём управление главной функции
             if call.data[:2] == "go":
