@@ -586,10 +586,8 @@ class Space:
             except Exception as error:
                 print("Error del geo-request message: ", error)
 
-            lat = float(user_info[b'geo_lat'])
-            long = float(user_info[b'geo_long'])
-            button_text = "Да, я здесь"
-            if int(user_info[b'parent_menu']) in [5, 8]:
+
+            if int(user_info[b'parent_menu']) == 5:
                 button_text = "Да, это здесь"
                 label_id = self.get_label_id(user_id, int(user_info[b'item']))
                 query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
@@ -597,6 +595,14 @@ class Space:
                 row = self.cursor.fetchone()
                 lat = row[0]
                 long = row[1]
+            elif int(user_info[b'parent_menu']) == 8:
+                button_text = "Да, это здесь"
+                lat = self.new_label.hget(user_id, b'geo_lat')
+                long = self.new_label.hget(user_id, b'geo_long')
+            else:
+                lat = float(user_info[b'geo_lat'])
+                long = float(user_info[b'geo_long'])
+                button_text = "Да, я здесь"
 
             keyboard.row(types.InlineKeyboardButton(text=button_text, callback_data=f"dgo_23"))
             keyboard.row(types.InlineKeyboardButton(text="Изменить", callback_data=f"dgo_21"))
