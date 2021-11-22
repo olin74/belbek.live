@@ -285,7 +285,7 @@ class Space:
             menu_edit_items = ['Как создавать места❓',
                                '❓', 'Новое место',
                                '📝', '🗺', '📸', '📚', '❌',
-                               '⏪', '🆗', '⏩', '🔄']
+                               '⏪', '🆗', '⏩', '🔄','⏮']
             keyboard_line = []
             message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
             if str(user_id).encode() in self.my_labels.keys():
@@ -316,13 +316,16 @@ class Space:
             if item > 0:
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[8],
                                                                 callback_data=f"select_{item-1}"))
+            else:
+                keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[12],
+                                                                callback_data=f"none"))
             keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[9], callback_data=f"go_0"))
             if str(user_id).encode() in self.my_labels.keys():
 
                 if item < self.my_labels.hlen(user_id) - 1:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[10],
                                                                     callback_data=f"select_{item+1}"))
-                elif item > 0:
+                else:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[11],
                                                                     callback_data=f"select_0"))
             keyboard.row(*keyboard_line)
@@ -339,7 +342,7 @@ class Space:
             user_info[b'parent_menu'] = menu_id
             menu_search_items = ['🚕➡️⛺️', '⬅️🚕⛺️',
                                  '🗺', '📸',
-                                 '⏪', '🆗', '⏩', '🔄']
+                                 '⏪', '🆗', '⏩', '🔄', '⏮']
             if str(user_id).encode() not in self.search.keys():
                 search_results = self.get_search_dict(message)
                 user_info[b'item'] = 0
@@ -352,7 +355,6 @@ class Space:
                 item = int(user_info[b'item'])
                 query = "SELECT * from labels WHERE id=%s"
                 label_id = self.get_label_id(user_id, item)
-                print(self.search.hgetall(user_id), item)
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.search.hlen(user_id)} результатов поиска\n"
@@ -377,11 +379,14 @@ class Space:
                 if item > 0:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[4],
                                                                     callback_data=f"select_{item - 1}"))
+                else
+                    keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[8],
+                                                                    callback_data=f"none"))
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[5], callback_data=f"go_0"))
                 if item < self.search.hlen(user_id) - 1:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[6],
                                                                     callback_data=f"select_{item + 1}"))
-                elif item > 0:
+                else:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[7],
                                                                     callback_data=f"select_0"))
                 keyboard.row(*keyboard_line)
@@ -586,7 +591,6 @@ class Space:
             except Exception as error:
                 print("Error del geo-request message: ", error)
 
-
             if int(user_info[b'parent_menu']) == 5:
                 button_text = "Да, это здесь"
                 label_id = self.get_label_id(user_id, int(user_info[b'item']))
@@ -725,8 +729,7 @@ class Space:
             keyboard = types.InlineKeyboardMarkup()
             self.users.hset(user_id, b'menu', -1)
 
-            if not self.users.hexists(user_id, b'clean_id'):
-                self.users.hset(user_id, b'clean_id', 0)
+
             keyboard.row(types.InlineKeyboardButton(text=f"Хорошо, приступим!", callback_data=f"go_7"))
             bot.send_message(user_id, welcome_text, reply_markup=keyboard)
 
@@ -811,7 +814,11 @@ class Space:
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
 
+
             # Чистим старые сообщения
+            if not self.users.hexists(user_id, b'clean_id'):
+                self.users.hset(user_id, b'clean_id', call.message.message_id - 1)
+
             message_id_clean = int(self.users.hget(user_id, b'clean_id'))
             while message_id_clean < call.message.message_id - 1:
                 message_id_clean += 1
