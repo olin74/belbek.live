@@ -379,7 +379,7 @@ class Space:
                 if item > 0:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[4],
                                                                     callback_data=f"select_{item - 1}"))
-                else
+                else:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[8],
                                                                     callback_data=f"none"))
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[5], callback_data=f"go_0"))
