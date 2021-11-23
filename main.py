@@ -714,7 +714,7 @@ class Space:
             row_res = self.cursor.fetchone()
             if row_res is None:
                 break
-            self.my_labels.zadd(int(row_res[3]), {row_res[0]: row_res[1]})
+            self.my_labels.zadd(int(row_res[2]), {row_res[0]: row_res[1]})
 
 
     def deploy(self):
