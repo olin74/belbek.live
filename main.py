@@ -127,16 +127,6 @@ class Space:
             s_data.append(label)
         return json.dumps(s_data)
 
-    # получаем id места из базы по номеру в списке
-    def get_label_id(self, user_id, item):
-        if int(self.users.hget(user_id, b'parent_menu')) == 6:
-            my_search_dict = self.search.hgetall(user_id)
-            return int(sorted(my_search_dict, key=my_search_dict.get)[item])
-
-        my_labels_dict = self.my_labels.hgetall(user_id)
-        sorted_list = sorted(my_labels_dict, key=my_labels_dict.get, reverse=True)
-        return int(sorted_list[item])
-
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
         user_id = message.chat.id
@@ -229,7 +219,7 @@ class Space:
                 if sub_list is not None:
                     selected_cats = json.loads(sub_list.decode('utf-8'))
             else:
-                temp_label_id = self.get_label_id(user_id, int(user_info[b'item']))
+                temp_label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                 query = "SELECT subcategory from labels WHERE id=%s"
                 self.cursor.execute(query, (temp_label_id,))
                 row = self.cursor.fetchone()
@@ -237,9 +227,9 @@ class Space:
 
             banned_cats = []  # Список категорий других мест пользователя
             if str(user_id).encode() in self.my_labels.keys():
-                user_labels = self.my_labels.hgetall(user_id)
+                user_labels = self.my_labels.zrange(user_id, 0, -1)
                 query = "SELECT subcategory from labels WHERE id=%s"
-                for label_id in user_labels.keys():
+                for label_id in user_labels:
                     if int(label_id) != temp_label_id:
                         self.cursor.execute(query, (int(label_id),))
                         row = self.cursor.fetchone()
@@ -256,7 +246,7 @@ class Space:
                         pre = "🚫 "
                         call_st = "none"
                     keyboard.row(types.InlineKeyboardButton(text=f"{pre}{cat}: {sub}", callback_data=call_st))
-            keyboard.row(types.InlineKeyboardButton(text=f"Готово",
+            keyboard.row(types.InlineKeyboardButton(text=f"☑️ Готово",
                                                     callback_data=f"go_{int(user_info[b'parent_menu'])}"))
             message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
             try:
@@ -285,17 +275,17 @@ class Space:
             menu_edit_items = ['Как создавать места❓',
                                '❓', 'Новое место',
                                '📝', '🗺', '📸', '📚', '❌',
-                               '⏪', '🆗', '⏩', '🔄','⏮']
+                               '⏪', '🆗', '⏩', '🔄', '⏮']
             keyboard_line = []
             message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
             if str(user_id).encode() in self.my_labels.keys():
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[1], callback_data=f"go_16"))
                 query = "SELECT * from labels WHERE id = %s"
-                label_id = self.get_label_id(user_id, item)
+                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
 
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
-                message_text = f"🏕 {item + 1} из {self.my_labels.hlen(user_id)} Ваших мест\n\n" \
+                message_text = f"🏕 {item + 1} из {self.my_labels.zcard(user_id)} Ваших мест\n\n" \
                                f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
 
             else:
@@ -322,7 +312,7 @@ class Space:
             keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[9], callback_data=f"go_0"))
             if str(user_id).encode() in self.my_labels.keys():
 
-                if item < self.my_labels.hlen(user_id) - 1:
+                if item < self.my_labels.zcard(user_id) - 1:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[10],
                                                                     callback_data=f"select_{item+1}"))
                 else:
@@ -341,23 +331,22 @@ class Space:
             self.users.hset(user_id, b'parent_menu', menu_id)
             user_info[b'parent_menu'] = menu_id
             menu_search_items = ['🚕➡️⛺️', '⬅️🚕⛺️',
-                                 '🗺', '📸',
+                                 '🗺 Карта', 'Фото 📸',
                                  '⏪', '🆗', '⏩', '🔄', '⏮']
             if str(user_id).encode() not in self.search.keys():
-                search_results = self.get_search_dict(message)
+                self.do_search(message)
                 user_info[b'item'] = 0
-                for label_id, dist in search_results.items():
-                    self.search.hset(user_id, label_id, dist)
 
             message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
             if str(user_id).encode() in self.search.keys():
 
                 item = int(user_info[b'item'])
                 query = "SELECT * from labels WHERE id=%s"
-                label_id = self.get_label_id(user_id, item)
+
+                label_id = int(self.search.zrange(user_id, 0, -1)[item])
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
-                message_text = f"🏕 {item + 1} из {self.search.hlen(user_id)} результатов поиска\n"
+                message_text = f"🏕 {item + 1} из {self.search.zcard(user_id)} результатов поиска\n"
                 if b'category' in user_info.keys():
                     message_text = message_text + f"🌎 {user_info[b'category'].decode('utf-8')}\n"
                 if b'subcategory' in user_info.keys():
@@ -366,7 +355,7 @@ class Space:
                 if len(search_s) > 0:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
                 message_text = message_text + f"\n📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
-                                              f"🚙 {float(self.search.hget(user_id, label_id)):.1f} км\n" \
+                                              f"🚙 {float(self.search.zscore(user_id, label_id))/1000:.1f} км\n" \
                                               f"💬 @{self.users.hget(row[9], b'username').decode('utf-8')}"
 
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_13"),
@@ -383,7 +372,7 @@ class Space:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[8],
                                                                     callback_data=f"none"))
                 keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[5], callback_data=f"go_0"))
-                if item < self.search.hlen(user_id) - 1:
+                if item < self.search.zcard(user_id) - 1:
                     keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[6],
                                                                     callback_data=f"select_{item + 1}"))
                 else:
@@ -425,15 +414,15 @@ class Space:
                              self.new_label.hexists(user_id, 'subcategory_list')
                 menu_new_label_items = ['📝', '🗺', '📸', '📚',
                                         'Опубликовать', '❌']
-                about_text = f"‼️ Необходимо заполнить 📝 описание , лимит {ABOUT_LIMIT} символов ‼️"
+                about_text = f"‼️ Необходимо заполнить описание (📝), лимит {ABOUT_LIMIT} символов ‼️"
                 if self.new_label.hexists(user_id, 'about'):
                     about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
 
-                cat_text = "‼️ Необходимо выбрать одно или несколько 📚 направлений ‼️"
+                cat_text = "‼️ Необходимо выбрать одно или несколько направлений (📚) ‼️"
                 if self.new_label.hexists(user_id, 'subcategory_list'):
                     cat_text = ','.join(json.loads(self.new_label.hget(user_id,
                                                                        'subcategory_list').decode('utf-8')))
-                message_text = f"📝 {about_text}\n📚 {cat_text}"
+                message_text = f"Описание 📝: {about_text}\n\nНаправления 📚: {cat_text}"
                 keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
                                  types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20"),
                                  types.InlineKeyboardButton(text=menu_new_label_items[2], callback_data=f"go_13"),
@@ -457,7 +446,7 @@ class Space:
                                f" настройки, справа сверху нажмите 'Изменить' и заполните" \
                                f" поле 'Имя пользователя'."
                 keyboard.row(
-                    types.InlineKeyboardButton(text=f"Готово", callback_data=f"go_{int(user_info[b'parent_menu'])}"))
+                    types.InlineKeyboardButton(text=f"☑️ Готово", callback_data=f"go_{int(user_info[b'parent_menu'])}"))
                 try:
                     bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
                                           text=message_text, reply_markup=keyboard)
@@ -486,7 +475,7 @@ class Space:
             self.cursor.execute(query)
             row = self.cursor.fetchone()
             label_id = row[0]
-            self.my_labels.hset(user_id, label_id, cur_time)
+            self.my_labels.zadd(user_id, label_id, cur_time)
 
             keyboard.row(types.InlineKeyboardButton(text="Замечательно", callback_data=f"go_5"))
             try:
@@ -498,7 +487,7 @@ class Space:
 
         elif menu_id == 10:  # Показать на карте
             bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
-            label_id = self.get_label_id(user_id, int(user_info[b'item']))
+            label_id = int(self.search.zrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
             query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
 
             self.cursor.execute(query, (label_id,))
@@ -531,7 +520,7 @@ class Space:
             message_text = f"Описание вашего места:\n\n📝 "
 
             if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                label_id = self.get_label_id(user_id, int(user_info[b'item']))
+                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                 query = "SELECT about from labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
@@ -546,7 +535,7 @@ class Space:
 
             message_text = message_text + "\n\n Отправьте текстом новое описание или нажмите 'Готово'"
 
-            keyboard.row(types.InlineKeyboardButton(text=f"Готово",
+            keyboard.row(types.InlineKeyboardButton(text=f"☑️ Готово",
                                                     callback_data=f"go_{int(user_info[b'parent_menu'])}"))
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
@@ -570,6 +559,24 @@ class Space:
 
         elif menu_id == 16:  # Помощь "как создать место?"
             message_text = "Ты сможешь, я в тебя верю!"
+            wtf_label = " Место ✳️ - это точка на карте, в которой происходит производство или реализация" \
+                        " ваших товаров и услуг." \
+                        " Например, это может быть точка продажи хлеба, сдаваемая в аренду недвижимость," \
+                        " студия массажа, или, в случае, если у" \
+                        " вас доставка по долине, место производства. Эта точка будет" \
+                        " использоваться для навигации к вам, если это потребуется, или просто давать информацию" \
+                        " о том, из какой части долины будет производиться доставка." \
+                        " Нажмите на кнопку 'Новое место' и Вы переёдёте в меню создания места. " \
+                        "  разместить метку следует прислать свою геолокацию нажав на кнопку" \
+                        " 'Отправить геолокацию' (геолокация на телефоне должна быть включена)" \
+                        " или отправив текстом координаты (через запятую) места, в котором хотите создать метку." \
+                        " После создания точки на карте, укажите" \
+                        " назавние и дайте краткое описание метки. Затем выберите подкатегорию (или несколько)," \
+                        " в которых ваша метка будет отображаться при поиске пользователями сервиса." \
+                        " В каждой подкатегории у вас может быть не более одной метки. После создания метки вы" \
+                        " можете заполнить необзательные поля, такие как 'подробное описание' или 'цена'. Далее" \
+                        " вам следует опубликовать метку нажав на соответствующую кнопку. Для удаления метки" \
+                        " снимие её с публикации и она удалится из списка ваших меток через сутки."
             keyboard.row(
                 types.InlineKeyboardButton(text=f"Спасибо, Джо, очень помог!",
                                            callback_data=f"go_{int(user_info[b'parent_menu'])}"))
@@ -593,7 +600,7 @@ class Space:
 
             if int(user_info[b'parent_menu']) == 5:
                 button_text = "Да, это здесь"
-                label_id = self.get_label_id(user_id, int(user_info[b'item']))
+                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                 query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
@@ -647,12 +654,12 @@ class Space:
             self.users.hset(user_id, key, val)
 
     # Формирование списка поиска
-    def get_search_dict(self, message):
+    def do_search(self, message):
 
         user_id = message.chat.id
         user_info = self.users.hgetall(user_id)
         # Перебираем все метки
-        geo = {}
+
         # поиск по слову попозже будет
         query = "SELECT * from labels"  # пересечение категорий ввести и поиск по слову!
         self.cursor.execute(query)
@@ -674,17 +681,18 @@ class Space:
             if b'category' not in user_info.keys() or user_info[b'category'].decode('utf-8') in label_cat_list:
                 if b'subcategory' not in user_info.keys() or \
                         user_info[b'subcategory'].decode('utf-8') in label_sub_list:
-                    geo[int(label_id)] = get_distance(float(user_info[b'geo_lat']),
+                    dist = int(1000*get_distance(float(user_info[b'geo_lat']),
                                                       float(user_info[b'geo_long']),
-                                                      row[6], row[7])
-        return geo
+                                                      row[6], row[7]))
+                    self.search.zadd(user_id, label_id, dist)
 
     # Получены координаты тем или иным образом
     def go_location(self, bot, message, location):
         user_id = message.chat.id
         if int(self.users.hget(user_id, b'menu')) in [7, 22]:
             if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
+                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+
                 query = "UPDATE labels SET geo_lat = %s, geo_long = %s WHERE id = %s"
                 self.cursor.execute(query, (location['latitude'], location['longitude'], label_id))
                 self.connection.commit()
@@ -698,23 +706,23 @@ class Space:
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
+        for buser_id in self.my_labels.keys():
+            self.my_labels.delete(int(buser_id))
+            query_sel = "SELECT id, time_added from labels WHERE author = %s"
+            self.cursor.execute(query_sel, (int(buser_id),))
+            while 1:
+                row_res = self.cursor.fetchone()
+                if row_res is None:
+                    break
+                self.my_labels.zadd(int(buser_id), row_res[0], row_res[1])
 
         # Стартовое сообщение
         @bot.message_handler(commands=['start'])
         def start_message(message):
             user_id = message.chat.id
-
-            query = "SELECT id, time_added from labels WHERE author = %s"
-            self.cursor.execute(query, (user_id,))
-            while 1:
-                row = self.cursor.fetchone()
-                if row is None:
-                    break
-                self.my_labels.hset(user_id, row[0], row[1])
-
             try:
                 bot.delete_message(chat_id=message.chat.id,
-                                   message_id=int(self.users.hget(user_id, b'message_id')))
+                                   message_id=int(self.users.hget(int(user_id), b'message_id')))
             except Exception as e:
                 print("Error: ", e)
             for i in range(3):
@@ -728,7 +736,6 @@ class Space:
                            f" но сейчас же ты не речи слушать пришел? Давай тестить!"
             keyboard = types.InlineKeyboardMarkup()
             self.users.hset(user_id, b'menu', -1)
-
 
             keyboard.row(types.InlineKeyboardButton(text=f"Хорошо, приступим!", callback_data=f"go_7"))
             bot.send_message(user_id, welcome_text, reply_markup=keyboard)
@@ -755,7 +762,8 @@ class Space:
             if int(self.users.hget(user_id, b'menu')) == 14:
                 about = message.text[:ABOUT_LIMIT]
                 if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                    label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
+
+                    label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                     query = "UPDATE labels SET about = %s WHERE id = %s"
                     self.cursor.execute(query, (about, label_id))
                     self.connection.commit()
@@ -773,24 +781,6 @@ class Space:
                 location = {'latitude': float(message.text.split(',')[0]),
                             'longitude': float(message.text.split(',')[1])}
                 self.go_location(bot, message, location)
-
-            wtf_label = " Метка ✳️ - это точка на карте, в которой происходит производство или реализация" \
-                        " ваших товаров и услуг." \
-                        " Например, это может быть точка продажи хлеба, сдаваемая в аренду недвижимость," \
-                        " студия массажа, или, в случае, если у" \
-                        " вас доставка по долине, место производства. Эта точка будет" \
-                        " использоваться для навигации к вам, если это потребуется, или просто давать информацию" \
-                        " о том, из какой части долины будет производиться доставка." \
-                        " Что бы разместить метку следует прислать свою геолокацию нажав на кнопку" \
-                        " 'Отправить геолокацию' (геолокация на телефоне должна быть включена)" \
-                        " или отправив текстом координаты (через запятую) места, в котором хотите создать метку." \
-                        " После создания точки на карте, укажите" \
-                        " назавние и дайте краткое описание метки. Затем выберите подкатегорию (или несколько)," \
-                        " в которых ваша метка будет отображаться при поиске пользователями сервиса." \
-                        " В каждой подкатегории у вас может быть не более одной метки. После создания метки вы" \
-                        " можете заполнить необзательные поля, такие как 'подробное описание' или 'цена'. Далее" \
-                        " вам следует опубликовать метку нажав на соответствующую кнопку. Для удаления метки" \
-                        " снимие её с публикации и она удалится из списка ваших меток через сутки."
 
             # Удаление сообщений
             bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
@@ -813,7 +803,6 @@ class Space:
 
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
-
 
             # Чистим старые сообщения
             if not self.users.hexists(user_id, b'clean_id'):
@@ -873,7 +862,8 @@ class Space:
 
                 categories = []  # Извлекаем список направлений у метки
                 if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                    label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
+
+                    label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                     query = "SELECT subcategory FROM labels WHERE id = %s"
                     self.cursor.execute(query, (label_id,))
                     row = self.cursor.fetchone()
@@ -891,7 +881,8 @@ class Space:
                 # Сохраняем список направлений
                 if int(self.users.hget(user_id, b'parent_menu')) == 5:
                     if len(categories) > 0:
-                        label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
+
+                        label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                         query = "UPDATE labels SET subcategory = %s WHERE id = %s"
                         self.cursor.execute(query, (categories, label_id))
                         self.connection.commit()
@@ -905,14 +896,14 @@ class Space:
 
             if call.data == "del_label":
                 # Удаляю место из базы и из списка меток пользователя
-                label_id = self.get_label_id(user_id, int(self.users.hget(user_id, b'item')))
+                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 self.connection.commit()
-                if self.my_labels.hlen(user_id) == 1:
+                if self.my_labels.zcard(user_id) == 1:
                     self.my_labels.delete(user_id)
                 else:
-                    self.my_labels.hdel(user_id, label_id)
+                    self.my_labels.zrem(user_id, label_id)
                 self.users.hset(user_id, b'item', 0)
                 self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
 
