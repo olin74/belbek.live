@@ -475,7 +475,7 @@ class Space:
             self.cursor.execute(query)
             row = self.cursor.fetchone()
             label_id = row[0]
-            self.my_labels.zadd(user_id, label_id, cur_time)
+            self.my_labels.zadd(user_id, {label_id: cur_time})
 
             keyboard.row(types.InlineKeyboardButton(text="Замечательно", callback_data=f"go_5"))
             try:
@@ -684,7 +684,7 @@ class Space:
                     dist = int(1000*get_distance(float(user_info[b'geo_lat']),
                                                       float(user_info[b'geo_long']),
                                                       row[6], row[7]))
-                    self.search.zadd(user_id, label_id, dist)
+                    self.search.zadd(user_id, {label_id: dist})
 
     # Получены координаты тем или иным образом
     def go_location(self, bot, message, location):
@@ -704,17 +704,23 @@ class Space:
                 self.users.hset(user_id, b'geo_long', location['longitude'])
             self.go_menu(bot, message, 20)
 
+    def service(self):
+        for b_user_id in self.my_labels.keys():
+            self.my_labels.delete(b_user_id)
+
+        query_sel = "SELECT id, time_added, author from labels"
+        self.cursor.execute(query_sel)
+        while 1:
+            row_res = self.cursor.fetchone()
+            if row_res is None:
+                break
+            self.my_labels.zadd(int(row_res[3]), {row_res[0]: row_res[1]})
+
+
     def deploy(self):
+        self.service()
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
-        for buser_id in self.my_labels.keys():
-            self.my_labels.delete(int(buser_id))
-            query_sel = "SELECT id, time_added from labels WHERE author = %s"
-            self.cursor.execute(query_sel, (int(buser_id),))
-            while 1:
-                row_res = self.cursor.fetchone()
-                if row_res is None:
-                    break
-                self.my_labels.zadd(int(buser_id), row_res[0], row_res[1])
+
 
         # Стартовое сообщение
         @bot.message_handler(commands=['start'])
