@@ -64,6 +64,7 @@ class Space:
         category
         subcategory
         search_string
+        сat_sel
         '''
         self.new_label = redis.from_url(redis_url, db=2)
         '''
@@ -165,8 +166,7 @@ class Space:
             self.cursor.execute(query)
             count_labels = self.cursor.fetchone()[0]
 
-            message_text = f"Мест в долине {count_labels}, приглашаю начать поиск написав текст " \
-                           f"(а не, регулярки гребаные еще не сделал) или нажав кнопку там внизу. "
+            message_text = f"Записей в базе {count_labels}, приглашаю начать поиск нажав кнопку там внизу. "
             cat_s = 'Все сферы'
             if b'category' in user_info.keys():
                 cat_s = user_info[b'category'].decode('utf-8')
@@ -235,8 +235,10 @@ class Space:
                         row = self.cursor.fetchone()
                         for cat in row[0]:
                             banned_cats.append(cat)
-
-            for cat, sub_list in self.categories.items():
+            keyboard_line = []
+            message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
+            if self.users.hexists(user_id, b'сat_sel'):
+                sub_list = self.categories.get(self.users.hget(user_id, b'сat_sel').decode('utf-8'))
                 for sub in sub_list:
                     pre = ""
                     call_st = f"lcat_{sub}"
@@ -245,10 +247,16 @@ class Space:
                     elif sub in banned_cats:
                         pre = "🚫 "
                         call_st = "none"
-                    keyboard.row(types.InlineKeyboardButton(text=f"{pre}{cat}: {sub}", callback_data=call_st))
-            keyboard.row(types.InlineKeyboardButton(text=f"☑️ Готово",
-                                                    callback_data=f"go_{int(user_info[b'parent_menu'])}"))
-            message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
+                    keyboard.row(types.InlineKeyboardButton(text=f"{pre}{sub}", callback_data=call_st))
+                keyboard_line.append(types.InlineKeyboardButton(text=f"↩️ Назад",
+                                                             callback_data=f"rcat"))
+            else:
+                for cat in self.categories.keys():
+                    keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
+            keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
+                                                         callback_data=f"go_{int(user_info[b'parent_menu'])}"))
+            keyboard.row(*keyboard_line)
+
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
                                       text=message_text, reply_markup=keyboard)
@@ -269,6 +277,7 @@ class Space:
 
         elif menu_id == 5:  # Меню редактирования
             self.users.hset(user_id, b'parent_menu', menu_id)
+            self.users.hdel(user_id, b'сat_sel')
             user_info[b'parent_menu'] = menu_id
             item = int(user_info[b'item'])
             self.new_label.delete(user_id)
@@ -285,7 +294,7 @@ class Space:
 
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
-                message_text = f"🏕 {item + 1} из {self.my_labels.zcard(user_id)} Ваших мест\n\n" \
+                message_text = f"🏕 {item + 1} из {self.my_labels.zcard(user_id)} Ваших мест:\n\n" \
                                f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
 
             else:
@@ -336,6 +345,10 @@ class Space:
             if str(user_id).encode() not in self.search.keys():
                 self.do_search(message)
                 user_info[b'item'] = 0
+                try:
+                    bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+                except Exception as error:
+                    print("Error del message: ", error)
 
             message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
             if str(user_id).encode() in self.search.keys():
@@ -406,6 +419,7 @@ class Space:
             if message.chat.username is not None:
                 self.users.hset(user_id, b'username', message.chat.username)
                 self.users.hset(user_id, b'parent_menu', menu_id)
+                self.users.hdel(user_id, b'сat_sel')
                 user_info[b'parent_menu'] = menu_id
                 if str(user_id).encode() not in self.new_label.keys():
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
@@ -716,11 +730,9 @@ class Space:
                 break
             self.my_labels.zadd(int(row_res[2]), {row_res[0]: row_res[1]})
 
-
     def deploy(self):
         self.service()
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
-
 
         # Стартовое сообщение
         @bot.message_handler(commands=['start'])
@@ -898,6 +910,15 @@ class Space:
                     else:
                         self.new_label.hdel(user_id, b'subcategory_list')
 
+                self.go_menu(bot, call.message, 3)
+
+            if call.data == "rcat":
+                self.users.hdel(user_id, b'sel_cat')
+                self.go_menu(bot, call.message, 3)
+
+            if call.data[:4] == "scat":
+                sel_category = call.data.split('_')[1]
+                self.users.hset(user_id, b'sel_cat', sel_category)
                 self.go_menu(bot, call.message, 3)
 
             if call.data == "del_label":
