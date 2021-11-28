@@ -251,10 +251,11 @@ class Space:
                 keyboard_line.append(types.InlineKeyboardButton(text=f"↩️ Назад",
                                                              callback_data=f"rcat"))
             else:
+                message_text = f"Выберите сферу дейтельности:"
                 for cat in self.categories.keys():
                     keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
-                                                         callback_data=f"go_{int(user_info[b'parent_menu'])}"))
+                                                            callback_data=f"go_{int(user_info[b'parent_menu'])}"))
             keyboard.row(*keyboard_line)
 
             try:
@@ -913,12 +914,12 @@ class Space:
                 self.go_menu(bot, call.message, 3)
 
             if call.data == "rcat":
-                self.users.hdel(user_id, b'sel_cat')
+                self.users.hdel(user_id, 'сat_sel')
                 self.go_menu(bot, call.message, 3)
 
             if call.data[:4] == "scat":
                 sel_category = call.data.split('_')[1]
-                self.users.hset(user_id, b'sel_cat', sel_category)
+                self.users.hset(user_id, 'сat_sel', sel_category)
                 self.go_menu(bot, call.message, 3)
 
             if call.data == "del_label":
