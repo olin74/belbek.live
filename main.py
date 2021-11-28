@@ -237,8 +237,8 @@ class Space:
                             banned_cats.append(cat)
             keyboard_line = []
             message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
-            if self.users.hexists(user_id, b'сat_sel'):
-                sub_list = self.categories.get(self.users.hget(user_id, b'сat_sel').decode('utf-8'))
+            if self.users.hexists(user_id, 'сat_sel'):
+                sub_list = self.categories.get(self.users.hget(user_id, 'сat_sel').decode('utf-8'))
                 for sub in sub_list:
                     pre = ""
                     call_st = f"lcat_{sub}"
@@ -277,7 +277,7 @@ class Space:
 
         elif menu_id == 5:  # Меню редактирования
             self.users.hset(user_id, b'parent_menu', menu_id)
-            self.users.hdel(user_id, b'сat_sel')
+            self.users.hdel(user_id, 'сat_sel')
             user_info[b'parent_menu'] = menu_id
             item = int(user_info[b'item'])
             self.new_label.delete(user_id)
@@ -419,7 +419,7 @@ class Space:
             if message.chat.username is not None:
                 self.users.hset(user_id, b'username', message.chat.username)
                 self.users.hset(user_id, b'parent_menu', menu_id)
-                self.users.hdel(user_id, b'сat_sel')
+                self.users.hdel(user_id, 'сat_sel')
                 user_info[b'parent_menu'] = menu_id
                 if str(user_id).encode() not in self.new_label.keys():
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
