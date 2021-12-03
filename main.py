@@ -322,8 +322,8 @@ class Space:
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.my_labels.zcard(user_id)} Ваших мест:\n\n" \
-                               f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
-
+                               f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
+                               f"💬 @{self.users.hget(user_id, b'username').decode('utf-8')}"
             else:
                 keyboard.row(types.InlineKeyboardButton(text=menu_edit_items[0], callback_data=f"go_16"))
 
@@ -435,7 +435,8 @@ class Space:
             geo_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
             message_text = "Боту следует знать, где Вы находитесь, что бы выдавать результы поиска в порядке удаления" \
                            " от Вас, для этого отправьте свою геопозицию нажав на кнопку ниже или " \
-                           "пришлите свои координаты текстом (через запятую)."
+                           " напишите текстом название села" \
+                           " (также Вы можете прислать координаты через запятую)."
 
             user_info[b'message_id'] = int(user_info[b'message_id']) + 1
             user_info[b'parent_menu'] = 0
@@ -659,7 +660,7 @@ class Space:
             bot.send_location(chat_id=message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
 
         elif menu_id == 21:  # Предупреждение об локации
-            message_text = "Не забудьте включить геолокацию"
+            message_text = "Не забудьте включить геолокацию, если хотите что бы бот сам определил Ваше местонахождение"
             keyboard.row(types.InlineKeyboardButton(text=f"Хорошо", callback_data=f"go_22"))
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
@@ -672,7 +673,8 @@ class Space:
             bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
             geo_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             geo_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
-            message_text = "Отправьте геопозицию нажав кнопку ниже или прислав текстом (через запятую). " \
+            message_text = "Отправьте геопозицию нажав кнопку ниже или напишите текстом название села" \
+                           " (также Вы можете прислать координаты через запятую). " \
                            "/cancel для отмены"
             user_info[b'message_id'] = int(user_info[b'message_id']) + 1
             bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
