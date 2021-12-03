@@ -828,11 +828,13 @@ class Space:
                     self.new_label.hset(user_id, b'about', about)
 
                 self.go_menu(bot, message, 14)
+                '''
                 try:
                     bot.delete_message(chat_id=message.chat.id,
                                        message_id=int(self.users.hget(user_id, b'message_id')))
                 except Exception as e:
                     print("Error: ", e)
+                '''
 
             # Обработка отправления текстом координат или названия пункта
             if int(self.users.hget(user_id, b'menu')) in [7, 22]:
