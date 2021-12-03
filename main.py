@@ -11,9 +11,11 @@ from telebot import types
 import time
 import re
 import os
+import Levenshtein
 
 # Устанавливаем константы
 # ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только whitejoe)
+CLEAR_OLD_MESSAGES = False  # Чистим сообщения в чате, но создаём нагрузку
 ABOUT_LIMIT = 1000  # Лимит символов в описании
 SYMBOL = "₽"  # Валюта текущей системы
 PLANET_RADIUS = 6371  # Радиус текущей планеты
@@ -99,6 +101,11 @@ class Space:
         with open("categories.json") as json_file:
             self.categories = json.load(json_file)
 
+        # Подгрузка координат населённых пунктов
+
+        with open("geo_dolina.json") as json_file:
+            self.points = json.load(json_file)
+
         # Снепшот
         # пока отключен (без базы)
         # today = str(int(time.time()) - int(time.time()) % (3600 * 24))[:-3]
@@ -127,6 +134,16 @@ class Space:
             s_data.append(label)
         return json.dumps(s_data)
 
+    def get_point(self, text):
+        min_r_dist = -1
+        result = None
+        for key, geo in self.points.items():
+            r_dist = Levenshtein.distance(text, key)
+            if min_r_dist < 0 or r_dist < min_r_dist:
+                min_r_dist = r_dist
+                result = geo
+        return result
+
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
         user_id = message.chat.id
@@ -150,7 +167,7 @@ class Space:
             # Кнопки меню
             start_menu_items = ['Как искать❓', '🏜 Мои места',
                                 '📍 Указать моё местоположение',
-                                '🌎 Выбрать сферу', '📚 Выбрать направление',
+                                '🌎 Выбрать сферу деятельности', '📚 Выбрать направление',
                                 '🏕 Поиск мест 🏕']
             keyboard_line = [types.InlineKeyboardButton(text=start_menu_items[0], callback_data=f"go_4"),
                              types.InlineKeyboardButton(text=start_menu_items[1], callback_data=f"go_5")]
@@ -161,13 +178,12 @@ class Space:
                 keyboard_line.append(types.InlineKeyboardButton(text=start_menu_items[4], callback_data=f"go_2"))
             keyboard.row(*keyboard_line)
             keyboard.row(types.InlineKeyboardButton(text=start_menu_items[5], callback_data=f"go_6"))
-            query = "SELECT  count(*) from labels"
+            query = "SELECT count(*) from labels"
             self.cursor.execute(query)
             count_labels = self.cursor.fetchone()[0]
 
             message_text = f"Записей в базе {count_labels}, начните поиск нажав на кнопку.\n" \
                            f"Канал поддержки: https://t.me/belbekspace"
-
 
             cat_s = 'Все сферы'
             if b'category' in user_info.keys():
@@ -251,7 +267,7 @@ class Space:
                         call_st = "none"
                     keyboard.row(types.InlineKeyboardButton(text=f"{pre}{sub}", callback_data=call_st))
                 keyboard_line.append(types.InlineKeyboardButton(text=f"↩️ Назад",
-                                                             callback_data=f"rcat"))
+                                                                callback_data=f"rcat"))
             else:
                 message_text = f"Выберите сферу дейтельности:"
                 for cat in self.categories.keys():
@@ -438,11 +454,11 @@ class Space:
                              self.new_label.hexists(user_id, 'subcategory_list')
                 menu_new_label_items = ['📝', '🗺', '📸', '📚',
                                         'Опубликовать', '❌']
-                about_text = f"‼️ Необходимо заполнить описание (📝), лимит {ABOUT_LIMIT} символов ‼️"
+                about_text = f"‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов️"
                 if self.new_label.hexists(user_id, 'about'):
                     about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
 
-                cat_text = "‼️ Необходимо выбрать одно или несколько направлений (📚) ‼️"
+                cat_text = "‼️ Необходимо выбрать одно или несколько направлений "
                 if self.new_label.hexists(user_id, 'subcategory_list'):
                     cat_text = ','.join(json.loads(self.new_label.hget(user_id,
                                                                        'subcategory_list').decode('utf-8')))
@@ -591,8 +607,8 @@ class Space:
                            f" использоваться для навигации к вам, если это потребуется, или просто давать информацию" \
                            f" о том, из какой части долины будет производиться доставка." \
                            f" Для создания нового места нажмите на кнопку 'Новое место', в открывшемся меню Вам будет" \
-                           f" предложено заполнить описание (лимит {ABOUT_LIMIT} символов). Также Вам будет" \
-                           f" предложено указать как минимум одно из направлений деятельности из предложенных ботом." \
+                           f" предложено заполнить описание (лимит {ABOUT_LIMIT} символов). Также Вам следует" \
+                           f" указать как минимум одно из направлений деятельности из предложенных ботом." \
                            f" Вы можете создать не больше одного места в каждом из направлений, но место можете иметь" \
                            f" несколько направлений. После этого у Вас появится возможность опубликовать место." \
                            f" При желании Вы можете загрузить фото и изменить геолокацию публикуемого места" \
@@ -759,7 +775,8 @@ class Space:
                     print("Error: ", e)
 
             bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-            welcome_text = f"Приветствую Вас! Этот бот - агрегатор товаров и услуг Бельбекской Долины. Здесь Вы" \
+            welcome_text = f"Приветствую Вас Жители и Гости Бельбексокой Долины!" \
+                           f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
                            f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
                            f" деятельности. Каждое объявление - это место в Долине. Место продажи товаров, мастерская" \
                            f" или что-нибудь еще в зависимости от сферы деятельности."
@@ -805,10 +822,13 @@ class Space:
                     print("Error: ", e)
                 self.go_menu(bot, message, 14)
 
-            # Обработка отправления координат текстом
-            if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
-                location = {'latitude': float(message.text.split(',')[0]),
-                            'longitude': float(message.text.split(',')[1])}
+            # Обработка отправления текстом координат или названия пункта
+            if int(self.users.hget(user_id, b'menu')) in [7, 22]:
+                if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
+                    location = {'latitude': float(message.text.split(',')[0]),
+                                'longitude': float(message.text.split(',')[1])}
+                else:
+                    location = self.get_point(message.text)
                 self.go_location(bot, message, location)
 
             # Удаление сообщений
@@ -840,10 +860,11 @@ class Space:
             message_id_clean = int(self.users.hget(user_id, b'clean_id'))
             while message_id_clean < call.message.message_id - 1:
                 message_id_clean += 1
-                try:
-                    bot.delete_message(chat_id=call.message.chat.id, message_id=message_id_clean)
-                except Exception as e:
-                    print("Error: ", e)
+                if CLEAR_OLD_MESSAGES:
+                    try:
+                        bot.delete_message(chat_id=call.message.chat.id, message_id=message_id_clean)
+                    except Exception as e:
+                        print("Error: ", e)
             self.users.hset(user_id, b'clean_id', call.message.message_id - 1)  # Фиксируем ID сообщения
 
             # Передаём управление главной функции
@@ -948,9 +969,9 @@ class Space:
             bot.answer_callback_query(call.id)
 
         bot.polling()
-        #try:
+        #  try:
         #    bot.polling()
-        #except Exception as error:
+        #  except Exception as error:
         #    print("Error polling: ", error)
 
 
