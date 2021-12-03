@@ -369,13 +369,11 @@ class Space:
             menu_search_items = ['🚕➡️⛺️', '⬅️🚕⛺️',
                                  '🗺 Карта', 'Фото 📸',
                                  '⏪', '🆗', '⏩', '🔄', '⏮']
+            new_search = False
             if str(user_id).encode() not in self.search.keys():
                 self.do_search(message)
                 user_info[b'item'] = 0
-                try:
-                    bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
-                except Exception as error:
-                    print("Error del message: ", error)
+                new_search = True
 
             message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
             if str(user_id).encode() in self.search.keys():
@@ -422,15 +420,22 @@ class Space:
             else:
                 keyboard.row(types.InlineKeyboardButton(text=menu_search_items[5], callback_data=f"go_0"))
 
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
+            if new_search:
+                try:
+                    bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+                except Exception as error:
+                    print("Error del message: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
+            else:
+                try:
+                    bot.edit_message_text(chat_id=user_id, message_id=int(user_info[b'message_id']),
+                                          text=message_text, reply_markup=keyboard)
+                except Exception as error:
+                    print("Error: ", error)
+                    bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 7:  # Задать начальную локацию
-            bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+
             geo_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             geo_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
             message_text = "Боту следует знать, где Вы находитесь, что бы выдавать результы поиска в порядке удаления" \
@@ -438,9 +443,10 @@ class Space:
                            " напишите текстом название села" \
                            " (также Вы можете прислать координаты через запятую)."
 
+            bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
+            bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
             user_info[b'message_id'] = int(user_info[b'message_id']) + 1
             user_info[b'parent_menu'] = 0
-            bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
 
         elif menu_id == 8:  # Меню создания нового места
             if message.chat.username is not None:
@@ -527,7 +533,7 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 10:  # Показать на карте
-            bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+
             label_id = int(self.search.zrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
             query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
 
@@ -539,6 +545,7 @@ class Space:
 
             keyboard.row(types.InlineKeyboardButton(text="OK", callback_data=f"dgo_{int(user_info[b'parent_menu'])}"))
             bot.send_location(chat_id=message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
+            bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
 
         elif menu_id == 11:  # Показ такси
             pass
@@ -633,10 +640,6 @@ class Space:
         elif menu_id == 19:  #
             pass
         elif menu_id == 20:  # Геолокация текущая
-            try:
-                bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
-            except Exception as error:
-                print("Error del geo-request message: ", error)
 
             if int(user_info[b'parent_menu']) == 5:
                 button_text = "Да, это здесь"
@@ -658,6 +661,10 @@ class Space:
             keyboard.row(types.InlineKeyboardButton(text=button_text, callback_data=f"dgo_23"))
             keyboard.row(types.InlineKeyboardButton(text="Изменить", callback_data=f"dgo_21"))
             bot.send_location(chat_id=message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
+            try:
+                bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+            except Exception as error:
+                print("Error del geo-request message: ", error)
 
         elif menu_id == 21:  # Предупреждение об локации
             message_text = "Не забудьте включить геолокацию, если хотите что бы бот сам определил Ваше местонахождение"
@@ -670,14 +677,16 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 22:  # Смена локации
-            bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+
             geo_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             geo_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
             message_text = "Отправьте геопозицию нажав кнопку ниже или напишите текстом название села" \
                            " (также Вы можете прислать координаты через запятую). " \
                            "/cancel для отмены"
-            user_info[b'message_id'] = int(user_info[b'message_id']) + 1
+
             bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
+            bot.delete_message(chat_id=message.chat.id, message_id=int(user_info[b'message_id']))
+            user_info[b'message_id'] = int(user_info[b'message_id']) + 1
 
         elif menu_id == 23:  # Уведомление о смене локации
             message_text = "Геолокация подтвеждена"
@@ -765,18 +774,8 @@ class Space:
         @bot.message_handler(commands=['start'])
         def start_message(message):
             user_id = message.chat.id
-            try:
-                bot.delete_message(chat_id=message.chat.id,
-                                   message_id=int(self.users.hget(int(user_id), b'message_id')))
-            except Exception as e:
-                print("Error: ", e)
-            for i in range(3):
-                try:
-                    bot.delete_message(chat_id=message.chat.id, message_id=i)
-                except Exception as e:
-                    print("Error: ", e)
 
-            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+
             welcome_text = f"Приветствую Вас Жители и Гости Бельбексокой Долины!" \
                            f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
                            f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
@@ -787,6 +786,16 @@ class Space:
 
             keyboard.row(types.InlineKeyboardButton(text=f"Хорошо, приступим!", callback_data=f"go_7"))
             bot.send_message(user_id, welcome_text, reply_markup=keyboard)
+            mess_id = 2
+            if self.users.hexists(int(user_id), b'message_id'):
+                mess_id = int(self.users.hget(int(user_id), b'message_id'))
+            for i in range(3):
+                if mess_id - i < message.message_id:
+                    try:
+                        bot.delete_message(chat_id=message.chat.id, message_id=mess_id - i)
+                    except Exception as e:
+                        print("Error: ", e)
+            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
 
         # Отмена ввода
         @bot.message_handler(commands=['cancel'])
@@ -817,12 +826,13 @@ class Space:
                     self.connection.commit()
                 elif int(self.users.hget(user_id, b'parent_menu')) == 8:
                     self.new_label.hset(user_id, b'about', about)
+
+                self.go_menu(bot, message, 14)
                 try:
                     bot.delete_message(chat_id=message.chat.id,
                                        message_id=int(self.users.hget(user_id, b'message_id')))
                 except Exception as e:
                     print("Error: ", e)
-                self.go_menu(bot, message, 14)
 
             # Обработка отправления текстом координат или названия пункта
             if int(self.users.hget(user_id, b'menu')) in [7, 22]:
@@ -875,8 +885,9 @@ class Space:
 
             # Передаём управление главной функции с удалением предыдущего сообщения
             if call.data[:3] == "dgo":
-                bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
                 self.go_menu(bot, call.message, int(call.data.split('_')[1]))
+                bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
             # Выбираем сферу для поиска
             if call.data[:4] == "ucat":
