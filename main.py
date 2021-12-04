@@ -516,8 +516,7 @@ class Space:
                                         float(self.new_label.hget(user_id, b'geo_long')),
                                         user_id,
                                         cur_time,
-                                        message.chat.username))
-                                        #  self.users.hget(user_id, b'username').decode('utf-8')))
+                                        self.users.hget(user_id, b'username').decode('utf-8')))
 
             self.connection.commit()
 
