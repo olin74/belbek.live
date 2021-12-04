@@ -49,7 +49,7 @@ class Space:
         # Подгружаем из системы ссылки на базы данных
         redis_url = os.environ['REDIS_URL_SPACE']
         # redis_url = "redis://:@localhost:6379"
-        redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
+        # redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
 
         # База данных пользователей
         self.users = redis.from_url(redis_url, db=1)
@@ -459,8 +459,8 @@ class Space:
                 if str(user_id).encode() not in self.new_label.keys():
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
-                can_create = self.new_label.hexists(user_id, 'about') and \
-                             self.new_label.hexists(user_id, 'subcategory_list')
+                can_create = self.new_label.hexists(user_id, 'about') and self.new_label.hexists(user_id,
+                                                                                                 'subcategory_list')
                 menu_new_label_items = ['📝', '🗺', '📸', '📚',
                                         'Опубликовать', '❌']
                 about_text = f"‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов️"
@@ -516,7 +516,8 @@ class Space:
                                         float(self.new_label.hget(user_id, b'geo_long')),
                                         user_id,
                                         cur_time,
-                                        self.users.hget(user_id, b'username').decode('utf-8')))
+                                        message.chat.username))
+                                        #  self.users.hget(user_id, b'username').decode('utf-8')))
 
             self.connection.commit()
 
@@ -776,7 +777,6 @@ class Space:
         @bot.message_handler(commands=['start'])
         def start_message(message):
             user_id = message.chat.id
-
 
             welcome_text = f"Приветствую Вас Жители и Гости Бельбексокой Долины!" \
                            f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
