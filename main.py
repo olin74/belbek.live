@@ -184,8 +184,8 @@ class Space:
 
             message_text = f"Записей в базе {count_labels}, начните поиск нажав на кнопку.\n" \
                            f"Канал поддержки: https://t.me/belbekspace"
-            if user_id not in self.my_labels.keys():
-                message_text = message_text + "\n Для публикации собственных творав/услуг зайдите в меню 'Мои места'" \
+            if str(user_id).encode() not in self.my_labels.keys():
+                message_text = message_text + "\nДля публикации собственных творав/услуг зайдите в меню 'Мои места'" \
                                               " и создайте новое место"
 
             cat_s = 'Все сферы'
