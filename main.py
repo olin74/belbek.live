@@ -395,7 +395,7 @@ class Space:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
                 message_text = message_text + f"\n📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
                                               f"🚙 {float(self.search.zscore(user_id, label_id))/1000:.1f} км\n" \
-                                              f"💬 @{self.users.hget(row[9], b'username').decode('utf-8')}"
+                                              f"💬 @{row[9]}"
 
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_13"),
                                  types.InlineKeyboardButton(text=menu_search_items[1], callback_data=f"go_13")]
@@ -516,7 +516,8 @@ class Space:
                                         float(self.new_label.hget(user_id, b'geo_long')),
                                         user_id,
                                         cur_time,
-                                        self.users.hget(user_id, b'username').decode('utf-8')))
+                                        message.chat.username))
+                                        #  self.users.hget(user_id, b'username').decode('utf-8')))
 
             self.connection.commit()
 
