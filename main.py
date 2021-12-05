@@ -463,11 +463,11 @@ class Space:
                                                                                                  'subcategory_list')
                 menu_new_label_items = ['📝 Описание', '🗺 Карта', '📸 Фото', '📚 Направления',
                                         'Опубликовать', '❌']
-                about_text = f"‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов️"
+                about_text = f"‼️ Необходимо заполнить описание (📝), лимит {ABOUT_LIMIT} символов"
                 if self.new_label.hexists(user_id, 'about'):
                     about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
 
-                cat_text = "‼️ Необходимо выбрать одно или несколько направлений "
+                cat_text = "‼️ Необходимо выбрать одно или несколько направлений (📚) "
                 if self.new_label.hexists(user_id, 'subcategory_list'):
                     cat_text = ','.join(json.loads(self.new_label.hget(user_id,
                                                                        'subcategory_list').decode('utf-8')))
