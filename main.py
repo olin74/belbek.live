@@ -149,10 +149,10 @@ class Space:
         user_id = message.chat.id
         cur_time = int(time.time())
 
-        self.users.hget(user_id, b'last_login', cur_time)
+        self.users.hset(user_id, b'last_login', cur_time)
         keyboard = types.InlineKeyboardMarkup()
 
-        self.users.hset(user_id, b'last_login', menu_id)
+        self.users.hset(user_id, b'menu', menu_id)
 
         if menu_id == 0:  # Главное меню
             self.users.hset(user_id, b'parent_menu', menu_id)
