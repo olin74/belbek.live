@@ -149,7 +149,7 @@ class Space:
         user_id = message.chat.id
         cur_time = int(time.time())
 
-        self.users.sget(user_id, b'last_login', cur_time)
+        self.users.hget(user_id, b'last_login', cur_time)
         keyboard = types.InlineKeyboardMarkup()
 
         self.users.hset(user_id, b'last_login', menu_id)
