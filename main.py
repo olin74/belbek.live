@@ -390,7 +390,7 @@ class Space:
                     message_text = message_text + f"🌎 {self.users.hget(user_id, b'category').decode('utf-8')}\n"
                 if self.users.hexists(user_id, b'subcategory'):
                     message_text = message_text + f"📚 {self.users.hget(user_id, b'subcategory').decode('utf-8')}\n"
-                search_s = self.users.hget(user_id, b'search_string', 0).decode('utf-8')
+                search_s = self.users.hget(user_id, b'search_string').decode('utf-8')
                 if len(search_s) > 0:
                     message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
                 message_text = message_text + f"\n📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
