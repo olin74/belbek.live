@@ -464,7 +464,7 @@ class Space:
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
                 can_create = self.new_label.hexists(user_id, 'about') and self.new_label.hexists(user_id,
                                                                                                  'subcategory_list')
-                menu_new_label_items = ['📝', '🗺', '📸', '📚',
+                menu_new_label_items = ['📝 Описание', '🗺 Карта', '📸 Фото', '📚 Направления',
                                         'Опубликовать', '❌']
                 about_text = f"‼️ Необходимо заполнить описание, лимит {ABOUT_LIMIT} символов️"
                 if self.new_label.hexists(user_id, 'about'):
@@ -476,8 +476,9 @@ class Space:
                                                                        'subcategory_list').decode('utf-8')))
                 message_text = f"Описание 📝: {about_text}\n\nНаправления 📚: {cat_text}"
                 keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
-                                 types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20"),
-                                 types.InlineKeyboardButton(text=menu_new_label_items[2], callback_data=f"go_13"),
+                                 types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20")]
+                keyboard.row(*keyboard_line)
+                keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[2], callback_data=f"go_13"),
                                  types.InlineKeyboardButton(text=menu_new_label_items[3], callback_data=f"go_3")]
                 keyboard.row(*keyboard_line)
                 keyboard_line = []
