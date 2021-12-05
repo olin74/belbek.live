@@ -324,7 +324,7 @@ class Space:
                 row = self.cursor.fetchone()
                 message_text = f"🏕 {item + 1} из {self.my_labels.zcard(user_id)} Ваших мест:\n\n" \
                                f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
-                               f"💬 @{self.users.hget(user_id, b'username').decode('utf-8')}"
+                               f"💬 @{message.chat.username}"
             else:
                 keyboard.row(types.InlineKeyboardButton(text=menu_edit_items[0], callback_data=f"go_16"))
 
@@ -452,7 +452,7 @@ class Space:
 
         elif menu_id == 8:  # Меню создания нового места
             if message.chat.username is not None:
-                self.users.hset(user_id, b'username', message.chat.username)
+                #  self.users.hset(user_id, b'username', message.chat.username)
                 self.users.hset(user_id, b'parent_menu', menu_id)
                 self.users.hdel(user_id, b'cat_sel')
                 user_info[b'parent_menu'] = menu_id
