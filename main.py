@@ -182,7 +182,7 @@ class Space:
             message_text = f"Записей в базе {count_labels}, начните поиск нажав на кнопку.\n" \
                            f"Канал поддержки: https://t.me/belbekspace"
             if str(user_id).encode() not in self.my_labels.keys():
-                message_text = message_text + "\nДля публикации собственных творав/услуг зайдите в меню 'Мои места'" \
+                message_text = message_text + "\nДля публикации собственных товаров/услуг зайдите в меню 'Мои места'" \
                                               " и создайте новое место"
 
             cat_s = 'Все сферы'
@@ -399,7 +399,7 @@ class Space:
 
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_13"),
                                  types.InlineKeyboardButton(text=menu_search_items[1], callback_data=f"go_13")]
-                keyboard.row(*keyboard_line)
+                # keyboard.row(*keyboard_line)
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[2], callback_data=f"go_10"),
                                  types.InlineKeyboardButton(text=menu_search_items[3], callback_data=f"go_13")]
                 keyboard.row(*keyboard_line)
@@ -751,7 +751,7 @@ class Space:
             elif int(self.users.hget(user_id, b'parent_menu')) == 8:
                 self.new_label.hset(user_id, b'geo_lat', location['latitude'])
                 self.new_label.hset(user_id, b'geo_long', location['longitude'])
-            else:
+            else: # 6
                 self.users.hset(user_id, b'geo_lat', location['latitude'])
                 self.users.hset(user_id, b'geo_long', location['longitude'])
             self.go_menu(bot, message, 20)
@@ -777,7 +777,7 @@ class Space:
         def start_message(message):
             user_id = message.chat.id
 
-            welcome_text = f"Приветствую Вас Жители и Гости Бельбексокой Долины!" \
+            welcome_text = f"Приветствую Вас Жители и Гости Бельбекской Долины!" \
                            f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
                            f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
                            f" деятельности. Каждое объявление - это место в Долине. Место продажи товаров, мастерская" \
