@@ -4,7 +4,6 @@
 
 import psycopg2
 import json
-import math
 import redis
 import telebot
 from telebot import types
@@ -12,6 +11,7 @@ import time
 import re
 import os
 import Levenshtein
+from taxi import Taxi
 
 # Устанавливаем константы
 # ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только whitejoe)
@@ -24,23 +24,6 @@ CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "vide
                  "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
                  "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
                  "migrate_from_chat_id", "pinned_message"]
-
-
-# Вычисление расстояния между координатами
-def get_distance(lat1, long1, lat2, long2):
-    # Функция вычисления гаверсинуса
-    def hav(x):
-        return (math.sin(x / 2)) ** 2
-
-    # Координаты из градусов в радианы
-    long1_rad = math.pi * long1 / 180
-    lat1_rad = math.pi * lat1 / 180
-    long2_rad = math.pi * long2 / 180
-    lat2_rad = math.pi * lat2 / 180
-    # Много геоматематики, пояснять не буду.
-    res = 2 * PLANET_RADIUS * math.asin(math.sqrt(hav(long2_rad - long1_rad) + math.cos(long1_rad) *
-                                                  math.cos(long1_rad) * hav(lat2_rad - lat1_rad)))
-    return res
 
 
 class Space:
@@ -114,6 +97,8 @@ class Space:
         # Чистка базы
         # какой базы?
 
+        self.taxi = Taxi()
+
     def snap_data(self):
         s_data = []
         query = "SELECT * from labels"
@@ -134,6 +119,7 @@ class Space:
             s_data.append(label)
         return json.dumps(s_data)
 
+    # Определяем введённый населённый пункт и возвращаем его координаты
     def get_point(self, text):
         min_r_dist = -1
         result = None
@@ -142,6 +128,8 @@ class Space:
             if min_r_dist < 0 or r_dist < min_r_dist:
                 min_r_dist = r_dist
                 result = geo
+            if min_r_dist == 0:
+                break
         return result
 
     # Обработчик всех состояний меню
@@ -273,7 +261,7 @@ class Space:
                 for cat in self.categories.keys():
                     keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
-                                                callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
+                                 callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
             keyboard.row(*keyboard_line)
 
             try:
@@ -295,7 +283,7 @@ class Space:
                            " ботом, обратитесь в канал поддержки @belbekspace"
 
             keyboard.row(types.InlineKeyboardButton(text=f"Спасибо",
-                                                callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
+                         callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                       text=message_text, reply_markup=keyboard)
@@ -459,6 +447,7 @@ class Space:
                 if str(user_id).encode() not in self.new_label.keys():
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
+
                 can_create = self.new_label.hexists(user_id, 'about') and self.new_label.hexists(user_id,
                                                                                                  'subcategory_list')
                 menu_new_label_items = ['📝 Описание', '🗺 Карта', '📸 Фото', '📚 Направления',
@@ -733,7 +722,7 @@ class Space:
                     self.users.hget(user_id, b'category').decode('utf-8') in label_cat_list:
                 if not self.users.hexists(user_id, b'subcategory') or \
                         self.users.hget(user_id, b'subcategory').decode('utf-8') in label_sub_list:
-                    dist = int(1000*get_distance(float(self.users.hget(user_id, b'geo_lat')),
+                    dist = int(1000 * Taxi.get_distance(float(self.users.hget(user_id, b'geo_lat')),
                                                  float(self.users.hget(user_id, b'geo_long')),
                                                  row[6], row[7]))
                     self.search.zadd(user_id, {label_id: dist})
