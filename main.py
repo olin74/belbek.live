@@ -385,9 +385,9 @@ class Space:
                                               f"🚙 {float(self.search.zscore(user_id, label_id))/1000:.1f} км\n" \
                                               f"💬 @{row[12]}"
 
-                keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_13"),
-                                 types.InlineKeyboardButton(text=menu_search_items[1], callback_data=f"go_13")]
-                # keyboard.row(*keyboard_line)
+                keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_11"),
+                                 types.InlineKeyboardButton(text=menu_search_items[1], callback_data=f"go_12")]
+                keyboard.row(*keyboard_line)
                 keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[2], callback_data=f"go_10"),
                                  types.InlineKeyboardButton(text=menu_search_items[3], callback_data=f"go_13")]
                 keyboard.row(*keyboard_line)
@@ -522,10 +522,38 @@ class Space:
             bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
 
         elif menu_id == 11:  # Показ такси
-            pass
+            location = {'latitude': float(self.users.hget(user_id, b'geo_lat')),
+                        'longitude': float(self.users.hget(user_id, b'geo_long'))}
+            message_text = self.taxi.go_search(location, False)
+            keyboard.row(
+                types.InlineKeyboardButton(text=f"Спасибо",
+                                           callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
+            try:
+                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                      text=message_text, reply_markup=keyboard)
+            except Exception as error:
+                print("Error: ", error)
+                bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 12:  # Показ доставки через такси
-            pass
+            label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+            query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
+            self.cursor.execute(query, (label_id,))
+            row = self.cursor.fetchone()
+            lat = row[0]
+            long = row[1]
+            location = {'latitude': lat,
+                        'longitude': long}
+            message_text = self.taxi.go_search(location, True)
+            keyboard.row(
+                types.InlineKeyboardButton(text=f"Спасибо",
+                                           callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
+            try:
+                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                      text=message_text, reply_markup=keyboard)
+            except Exception as error:
+                print("Error: ", error)
+                bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 13:  # Уведомление "в разработке"
             message_text = "Эта часть бота в разработке. Простите, но придётся подождать"
@@ -595,11 +623,12 @@ class Space:
                            f" несколько направлений. После этого у Вас появится возможность опубликовать место." \
                            f" При желании Вы можете загрузить фото и изменить геолокацию публикуемого места" \
                            f" (по-умолчанию выставляется Ваше текущее местоположение). После создания вы сможете" \
-                           f" вносить любые изменения. Обсудить набор сфер и направлений деятельности, оставить" \
+                           f" вносить любые изменения (пояснения к кнопкам: 📝 - описание, 🗺 - место на карте," \
+                           f" 📸 - фото, 📚 - направления, ❌ - удалить). Обсудить набор направлений деятельности," \
                            f" замечания по работе и обнаруженные ошибке Вы можете в канале поддержки @belbekspace "
 
             keyboard.row(
-                types.InlineKeyboardButton(text=f"Спасибо, Джо, очень помог!",
+                types.InlineKeyboardButton(text=f"Спасибо",
                                            callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
