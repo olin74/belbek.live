@@ -11,7 +11,7 @@ import time
 import re
 import os
 import Levenshtein
-from taxi import Taxi
+from taxi import SpaceTaxi
 
 # Устанавливаем константы
 # ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только whitejoe)
@@ -97,7 +97,7 @@ class Space:
         # Чистка базы
         # какой базы?
 
-        self.taxi = Taxi()
+        self.taxi = SpaceTaxi()
 
     def snap_data(self):
         s_data = []
@@ -445,40 +445,20 @@ class Space:
                 self.users.hset(user_id, b'parent_menu', menu_id)
                 self.users.hdel(user_id, b'cat_sel')
                 if str(user_id).encode() not in self.new_label.keys():
+                    self.go_menu(bot, message, 14)
+                    return
+
+                if not self.new_label.hexists(user_id, 'about'):
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
+                    self.go_menu(bot, message, 20)
+                    return
+                if not self.new_label.hexists(user_id, 'subcategory_list'):
+                    self.go_menu(bot, message, 3)
+                    return
+                self.go_menu(bot, message, 9)
+                return
 
-                can_create = self.new_label.hexists(user_id, 'about') and self.new_label.hexists(user_id,
-                                                                                                 'subcategory_list')
-                menu_new_label_items = ['📝 Описание', '🗺 Карта', '📸 Фото', '📚 Направления',
-                                        'Опубликовать', '❌']
-                about_text = f"‼️ Необходимо заполнить описание (📝), лимит {ABOUT_LIMIT} символов"
-                if self.new_label.hexists(user_id, 'about'):
-                    about_text = self.new_label.hget(user_id, 'about').decode('utf-8')
-
-                cat_text = "‼️ Необходимо выбрать одно или несколько направлений (📚) "
-                if self.new_label.hexists(user_id, 'subcategory_list'):
-                    cat_text = ','.join(json.loads(self.new_label.hget(user_id,
-                                                                       'subcategory_list').decode('utf-8')))
-                message_text = f"Описание 📝: {about_text}\n\nНаправления 📚: {cat_text}"
-                keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[0], callback_data=f"go_14"),
-                                 types.InlineKeyboardButton(text=menu_new_label_items[1], callback_data=f"go_20")]
-                keyboard.row(*keyboard_line)
-                keyboard_line = [types.InlineKeyboardButton(text=menu_new_label_items[2], callback_data=f"go_13"),
-                                 types.InlineKeyboardButton(text=menu_new_label_items[3], callback_data=f"go_3")]
-                keyboard.row(*keyboard_line)
-                keyboard_line = []
-                if can_create:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_new_label_items[4],
-                                                                    callback_data=f"go_9"))
-                keyboard_line.append(types.InlineKeyboardButton(text=menu_new_label_items[5], callback_data=f"go_5"))
-                keyboard.row(*keyboard_line)
-                try:
-                    bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                          text=message_text, reply_markup=keyboard)
-                except Exception as error:
-                    print("Error: ", error)
-                    bot.send_message(user_id, message_text, reply_markup=keyboard)
             else:
                 message_text = f"‼️ Задайте имя пользователя в аккаунте Telegram," \
                                f" что бы бот мог направить Вам гостей и жителей долины ‼️ Для этого зайдите в" \
@@ -569,7 +549,7 @@ class Space:
                 message_text = message_text + row[0]
 
             elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-
+                keyboard.row(types.InlineKeyboardButton(text=f"Отмена", callback_data=f"go_5"))
                 if self.new_label.hexists(user_id, b'about'):
                     message_text = message_text + self.new_label.hget(user_id, b'about').decode('utf-8')
                 else:
@@ -654,6 +634,8 @@ class Space:
 
             keyboard.row(types.InlineKeyboardButton(text=button_text, callback_data=f"dgo_23"))
             keyboard.row(types.InlineKeyboardButton(text="Изменить", callback_data=f"dgo_21"))
+
+
             bot.send_location(chat_id=message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
             try:
                 bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
@@ -722,9 +704,9 @@ class Space:
                     self.users.hget(user_id, b'category').decode('utf-8') in label_cat_list:
                 if not self.users.hexists(user_id, b'subcategory') or \
                         self.users.hget(user_id, b'subcategory').decode('utf-8') in label_sub_list:
-                    dist = int(1000 * Taxi.get_distance(float(self.users.hget(user_id, b'geo_lat')),
-                                                 float(self.users.hget(user_id, b'geo_long')),
-                                                 row[6], row[7]))
+                    dist = int(1000 * SpaceTaxi.get_distance(float(self.users.hget(user_id, b'geo_lat')),
+                                                             float(self.users.hget(user_id, b'geo_long')),
+                                                             row[6], row[7]))
                     self.search.zadd(user_id, {label_id: dist})
 
     # Получены координаты тем или иным образом
