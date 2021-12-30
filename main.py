@@ -536,7 +536,7 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 12:  # Показ доставки через такси
-            label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+            label_id = int(self.search.zrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
             query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
             self.cursor.execute(query, (label_id,))
             row = self.cursor.fetchone()
