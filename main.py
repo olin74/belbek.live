@@ -448,7 +448,7 @@ class Space:
                     self.go_menu(bot, message, 14)
                     return
 
-                if not self.new_label.hexists(user_id, 'about'):
+                if not self.new_label.hexists(user_id, 'geo_lat'):
                     self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
                     self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
                     self.go_menu(bot, message, 20)
