@@ -32,7 +32,7 @@ class Space:
         # Подгружаем из системы ссылки на базы данных
         redis_url = os.environ['REDIS_URL_SPACE']
         # redis_url = "redis://:@localhost:6379"
-        # redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
+        redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
 
         # База данных пользователей
         self.users = redis.from_url(redis_url, db=1)
@@ -60,6 +60,7 @@ class Space:
         '''
         self.my_labels = redis.from_url(redis_url, db=3)
         self.search = redis.from_url(redis_url, db=4)
+        self.snapshot = redis.from_url(redis_url_snapshot)
 
         # Подключемся к базе данных
         self.connection = psycopg2.connect(os.environ['POSTGRES_URL'])
@@ -89,14 +90,11 @@ class Space:
         with open("geo_dolina.json") as json_file:
             self.points = json.load(json_file)
 
-        # Снепшот
-        # пока отключен (без базы)
-        # today = str(int(time.time()) - int(time.time()) % (3600 * 24))[:-3]
-        # redis.from_url(redis_url_snapshot).set('snapshot-' + today, self.snap_data())
 
         # Чистка базы
         # какой базы?
 
+        self.snap_data()
         self.taxi = SpaceTaxi()
 
     def snap_data(self):
@@ -109,6 +107,7 @@ class Space:
                 break
             label = {
                     'about': row[1],
+
                     'subcategory': json.dumps(row[3]),
                     #  'tags': self.labels['tags'][label_id].decode('utf-8'),
                     'geo_lat': row[6],
@@ -116,8 +115,12 @@ class Space:
                     'views': row[8],
                     'author_tg_username': f"@{row[12]}"
                     }
-            s_data.append(label)
-        return json.dumps(s_data)
+            #s_data.append(label)
+
+            self.snapshot.hset(row[0], 'id', row[0])
+            self.snapshot.hset(row[0], 'from', row[12])
+            self.snapshot.hset(row[0], 'desc', row[1])
+        return #  json.dumps(s_data)
 
     # Определяем введённый населённый пункт и возвращаем его координаты
     def get_point(self, text):
