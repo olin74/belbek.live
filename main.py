@@ -754,7 +754,7 @@ class Space:
             elif int(self.users.hget(user_id, b'parent_menu')) == 8:
                 self.new_label.hset(user_id, b'geo_lat', location['latitude'])
                 self.new_label.hset(user_id, b'geo_long', location['longitude'])
-            else: # 6
+            else:  # 6
                 self.users.hset(user_id, b'geo_lat', location['latitude'])
                 self.users.hset(user_id, b'geo_long', location['longitude'])
             self.go_menu(bot, message, 20)
@@ -787,6 +787,7 @@ class Space:
                            f" или что-нибудь еще в зависимости от сферы деятельности."
             keyboard = types.InlineKeyboardMarkup()
             self.users.hset(user_id, b'menu', -1)
+            self.users.hset(user_id, b'parent_menu', 6)
 
             keyboard.row(types.InlineKeyboardButton(text=f"Хорошо, приступим!", callback_data=f"go_7"))
             bot.send_message(user_id, welcome_text, reply_markup=keyboard)
