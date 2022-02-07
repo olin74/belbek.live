@@ -124,6 +124,8 @@ class Space:
                                                                 callback_data=f"del_{item_id}"))
             elif is_command:
                 message_text = f"/set_item {item_id}@{DS_ID}:"
+                if message.chat.username is not None :
+                    message_text = message_text + f"\nhttps://t.me/{message.chat.username}"
         keyboard = types.InlineKeyboardMarkup()
         keyboard.row(*item_menu)
         self.check_th()
