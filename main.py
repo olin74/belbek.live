@@ -12,7 +12,7 @@ import os
 
 # Устанавливаем константы
 BOTCHAT_ID = -1001508419451  # Айди чата для ботов
-BEBUG_ID = 665812965 # Дебаг whitejoe
+DEBUG_ID = 665812965 # Дебаг whitejoe
 ABOUT_LIMIT = 2000  # Лимит символов в описании
 DS_ID = "belbek_space"
 
