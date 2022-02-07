@@ -13,6 +13,7 @@ import os
 # Устанавливаем константы
 BOTCHAT_ID = -1001508419451  # Айди чата для ботов
 DEBUG_ID = 665812965 # Дебаг whitejoe
+DEBUG_ID = 665812965 # Дебаг whitejoe
 ABOUT_LIMIT = 2000  # Лимит символов в описании
 DS_ID = "belbek_space"
 
@@ -99,7 +100,7 @@ class Space:
     def send_item(self, bot, user_id, item_id, is_command=False, is_edited=False, is_ds=False, message_id=None):
         item_menu = []
         if is_ds:
-            message_text = f"📝 {self.deep_space.get(item_id)}\n" \
+            message_text = f"📝 {self.deep_space.get(item_id).decode('utf-8')}\n" \
                            f"🆔 {item_id}\n" \
                            f"{self.additional_scat[0]}"
         else:
@@ -390,7 +391,9 @@ class Space:
             self.users.hset(user_id, b'last_login', cur_time)
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
-
+            bot.answer_callback_query(call.id)
+            bot.send_message(user_id," Бот на реконструкции")
+            return
 
             # Передаём управление главной функции
             if call.data[:2] == "go":
