@@ -8,23 +8,12 @@ import redis
 import telebot
 from telebot import types
 import time
-import re
 import os
-import Levenshtein
-from taxi import SpaceTaxi
 
 # Устанавливаем константы
-# ADMIN_LIST = [665812965]  # Список админов для спец команд (тут только whitejoe)
-CLEAR_OLD_MESSAGES = False  # Чистим сообщения в чате, но создаём нагрузку
-ABOUT_LIMIT = 1000  # Лимит символов в описании
-SYMBOL = "₽"  # Валюта текущей системы
-PLANET_RADIUS = 6371  # Радиус текущей планеты
-TIME_OUT_USER = 30 * 30 * 24 * 30  # Время отсутствия активности пользователя перед удалением его меток
-CONTENT_TYPES = ["text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact",
-                 "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
-                 "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
-                 "migrate_from_chat_id", "pinned_message"]
-
+BOTCHAT_ID = 665812965  # Айди чата для ботов
+ABOUT_LIMIT = 2000  # Лимит символов в описании
+DS_ID = "belbek_space"
 
 class Space:
     def __init__(self):
@@ -32,17 +21,16 @@ class Space:
         # Подгружаем из системы ссылки на базы данных
         redis_url = os.environ['REDIS_URL_SPACE']
         # redis_url = "redis://:@localhost:6379"
-        redis_url_snapshot = os.environ['REDIS_URL_SNAPSHOT']
 
         # База данных пользователей
         self.users = redis.from_url(redis_url, db=1)
         '''
         username
-        menu
+          edit
         parent_menu
-        item
-        last_login
-        message_id
+          item
+          last_login
+          message_id
         clean_id
         geo_long
         geo_lat
@@ -55,12 +43,12 @@ class Space:
         '''
         geo_long
         geo_lat
-        about
-        subcategory_list
+          about
+          subcategory_list
         '''
-        self.my_labels = redis.from_url(redis_url, db=3)
-        self.search = redis.from_url(redis_url, db=4)
-        self.snapshot = redis.from_url(redis_url_snapshot)
+        # self.my_labels = redis.from_url(redis_url, db=3)
+        # self.search = redis.from_url(redis_url, db=4)
+        self.deep_space = redis.from_url(redis_url, db=5)
 
         # Подключемся к базе данных
         self.connection = psycopg2.connect(os.environ['POSTGRES_URL'])
@@ -85,117 +73,98 @@ class Space:
         with open("categories.json") as json_file:
             self.categories = json.load(json_file)
 
-        # Подгрузка координат населённых пунктов
+        self.menu_items = ['🏕 Поиск 🏕', '🧞 Мои затеи']
+        self.edit_items = ['Изменить', '📚' , '❌']
+        self.menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+        self.menu_keyboard.row(types.KeyboardButton(text=self.menu_items[0]),
+                               types.KeyboardButton(text=self.menu_items[1]))
 
-        with open("geo_dolina.json") as json_file:
-            self.points = json.load(json_file)
+        self.additional_scat = ['🎪 Ярмарка 🎪', '🌎 Все сферы 🌎', '📚 Все направления 📚']
+        self.limit_per_second = 5
+        self.limit_counter = 0
+        self.last_send_time = int(time.time())
 
-
-        # Чистка базы
-        # какой базы?
-
-        self.snap_data()
-        self.taxi = SpaceTaxi()
-
-    def snap_data(self):
-        s_data = []
-        query = "SELECT * from labels"
-        self.cursor.execute(query)
+    def check_th(self):
         while 1:
-            row = self.cursor.fetchone()
-            if row is None:
-                break
-            label = {
-                    'about': row[1],
+            cur_time = int(time.time())
+            if self.last_send_time < cur_time:
+                self.limit_counter = 0
+                self.last_send_time = cur_time
+            self.limit_counter += 1
+            if self.limit_counter <= self.limit_per_second:
+                return cur_time
+            time.sleep(1)
 
-                    'subcategory': json.dumps(row[3]),
-                    #  'tags': self.labels['tags'][label_id].decode('utf-8'),
-                    'geo_lat': row[6],
-                    'geo_long': row[7],
-                    'views': row[8],
-                    'author_tg_username': f"@{row[12]}"
-                    }
-            #s_data.append(label)
+    def send_item(self, bot, user_id, item_id, is_command=False, is_edited=False, is_ds=False, message_id=None):
+        item_menu = []
+        if is_ds:
+            message_text = f"📝 {self.deep_space.get(item_id)}\n" \
+                           f"🆔 {item_id}\n" \
+                           f"{self.additional_scat[0]}"
+        else:
+            query = "SELECT * from labels WHERE id=%s"
+            cursor = self.connection.cursor()
+            cursor.execute(query, (item_id,))
+            row = cursor.fetchone()
+            message_text = "Удалено"
+            if row is not None:
+                message_text = row[1]
+                if is_command:
+                    message_text = f"/set_item\nid:{item_id}@{DS_ID}\nts:{int(time.time())}\nitem:{message_text}"
+                else:
+                    message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
+                    if row[12] is not None and len(row[12]) > 0:
+                        message_text = message_text + f"\n💬 @{row[12]}"
+                if is_edited:
+                    item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
+                                                                callback_data=f"edit_{item_id}"))
+                    item_menu.append(types.InlineKeyboardButton(text=self.edit_items[1],
+                                                                callback_data=f"cat_{item_id}"))
+                    item_menu.append(types.InlineKeyboardButton(text=self.edit_items[2],
+                                                                callback_data=f"del_{item_id}"))
+            elif is_command:
+                message_text = f"/set_item\nid:{item_id}@{DS_ID}\nts:{int(time.time())}\nitem:"
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.row(*item_menu)
+        self.check_th()
+        if is_command:
+            user_id = BOTCHAT_ID
+        try:
+            if message_id is None:
+                bot.send_message(user_id, message_text, reply_markup=keyboard)
+            else:
+                bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text, reply_markup=keyboard)
+        except Exception as error:
+            print("Error: ", error)
 
-            self.snapshot.hset(row[0], 'id', row[0])
-            self.snapshot.hset(row[0], 'from', row[12])
-            self.snapshot.hset(row[0], 'desc', row[1])
-        return #  json.dumps(s_data)
-
-    # Определяем введённый населённый пункт и возвращаем его координаты
-    def get_point(self, text):
-        min_r_dist = -1
-        result = None
-        for key, geo in self.points.items():
-            r_dist = Levenshtein.distance(text, key)
-            if min_r_dist < 0 or r_dist < min_r_dist:
-                min_r_dist = r_dist
-                result = geo
-            if min_r_dist == 0:
-                break
-        return result
+    def new_item_menu(self, bot, message):
+        message_text = "Вы можете добавить новую затею нажав на кнопку"
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.row(types.InlineKeyboardButton(text='➕ Новая затея',
+                                                callback_data=f"edit_0"))
+        self.check_th()
+        bot.send_message(message.chat.id, message_text, reply_markup=keyboard)
 
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
         user_id = message.chat.id
-        cur_time = int(time.time())
 
-        self.users.hset(user_id, b'last_login', cur_time)
         keyboard = types.InlineKeyboardMarkup()
 
-        self.users.hset(user_id, b'menu', menu_id)
 
-        if menu_id == 0:  # Главное меню
-            self.users.hset(user_id, b'parent_menu', menu_id)
-            self.users.hset(user_id, b'item', 0)
-            self.search.delete(user_id)
-            self.users.hset(user_id, b'search_string', '')
-
-            # Кнопки меню
-            start_menu_items = ['Как искать❓', '🏜 Мои места',
-                                '📍 Указать моё местоположение',
-                                '🌎 Выбрать сферу деятельности', '📚 Выбрать направление',
-                                '🏕 Поиск мест 🏕']
-            keyboard_line = [types.InlineKeyboardButton(text=start_menu_items[0], callback_data=f"go_4"),
-                             types.InlineKeyboardButton(text=start_menu_items[1], callback_data=f"go_5")]
-            keyboard.row(*keyboard_line)
-            keyboard.row(types.InlineKeyboardButton(text=start_menu_items[2], callback_data=f"go_20"))
-            keyboard_line = [types.InlineKeyboardButton(text=start_menu_items[3], callback_data=f"go_1")]
-
-            if self.users.hexists(user_id, b'category'):
-                keyboard_line.append(types.InlineKeyboardButton(text=start_menu_items[4], callback_data=f"go_2"))
-            keyboard.row(*keyboard_line)
-            keyboard.row(types.InlineKeyboardButton(text=start_menu_items[5], callback_data=f"go_6"))
-            query = "SELECT count(*) from labels"
-            self.cursor.execute(query)
-            count_labels = self.cursor.fetchone()[0]
-
-            message_text = f"Записей в базе {count_labels}, начните поиск нажав на кнопку.\n" \
-                           f"Канал поддержки: https://t.me/belbekspace"
-            if str(user_id).encode() not in self.my_labels.keys():
-                message_text = message_text + "\nДля публикации собственных товаров/услуг зайдите в меню 'Мои места'" \
-                                              " и создайте новое место"
-
-            cat_s = 'Все сферы'
-            if self.users.hexists(user_id, b'category'):
-                cat_s = self.users.hget(user_id, b'category').decode('utf-8')
-            message_text = message_text + f"\n🌎 {cat_s}"
-            if self.users.hexists(user_id, b'category'):
-                sub_s = 'Все направления'
-                if self.users.hexists(user_id, b'subcategory'):
-                    sub_s = self.users.hget(user_id, b'subcategory').decode('utf-8')
-                message_text = message_text + f"\n📚 {sub_s}"
+        if menu_id == 0:  # Создание итема
+            message_text = f"Пришлите описание вашей затей (лимит {ABOUT_LIMIT} символов)"
+            self.check_th()
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
+                                      text=message_text, reply_markup=types.ReplyKeyboardRemove())
             except Exception as error:
                 print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 1:  # Выбор сферы
+                bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+        elif menu_id == 1:  # Выбор сферы для поиска
             for cat in self.categories.keys():
                 keyboard.row(types.InlineKeyboardButton(text=cat, callback_data=f"ucat_{cat}"))
-            keyboard.row(types.InlineKeyboardButton(text="🌎 Все сферы 🌎", callback_data=f"dcat"))
+            keyboard.row(types.InlineKeyboardButton(text=self.additional_scat[0], callback_data=f"ds_cat"))
             message_text = "Выберите сферу деятельности:"
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -204,7 +173,7 @@ class Space:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
-        elif menu_id == 2:  # Выбор направления
+        elif menu_id == 2:  # Выбор направления для поиска
             cat = self.users.hget(user_id, b'category').decode('utf-8')
             for sub in self.categories[cat]:
                 keyboard.row(types.InlineKeyboardButton(text=sub, callback_data=f"usub_{sub}"))
@@ -217,33 +186,15 @@ class Space:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
-        elif menu_id == 3:  # Выбор направлений места
+        elif menu_id == 3:  # Редактирование направлений
 
-            selected_cats = []  # Список категорий выбранного места
+            selected_cats = []  # Список подкатегорий выбранного итема
+            item_id = int(self.users.hget(user_id, b'item'))
+            query = "SELECT subcategory from labels WHERE id=%s"
+            self.cursor.execute(query, (item_id,))
+            row = self.cursor.fetchone()
+            selected_cats = row[0]
 
-            temp_label_id = -1
-            if int(self.users.hget(user_id, b'parent_menu')) == 8:
-
-                sub_list = self.new_label.hget(user_id, b'subcategory_list')
-                if sub_list is not None:
-                    selected_cats = json.loads(sub_list.decode('utf-8'))
-            else:
-                temp_label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-                query = "SELECT subcategory from labels WHERE id=%s"
-                self.cursor.execute(query, (temp_label_id,))
-                row = self.cursor.fetchone()
-                selected_cats = row[0]
-
-            banned_cats = []  # Список категорий других мест пользователя
-            if str(user_id).encode() in self.my_labels.keys():
-                user_labels = self.my_labels.zrange(user_id, 0, -1)
-                query = "SELECT subcategory from labels WHERE id=%s"
-                for label_id in user_labels:
-                    if int(label_id) != temp_label_id:
-                        self.cursor.execute(query, (int(label_id),))
-                        row = self.cursor.fetchone()
-                        for cat in row[0]:
-                            banned_cats.append(cat)
             keyboard_line = []
             message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
             if self.users.hexists(user_id, b'cat_sel'):
@@ -253,9 +204,6 @@ class Space:
                     call_st = f"lcat_{sub}"
                     if sub in selected_cats:
                         pre = "✅ "
-                    elif sub in banned_cats:
-                        pre = "🚫 "
-                        call_st = "none"
                     keyboard.row(types.InlineKeyboardButton(text=f"{pre}{sub}", callback_data=call_st))
                 keyboard_line.append(types.InlineKeyboardButton(text=f"↩️ Назад",
                                                                 callback_data=f"rcat"))
@@ -274,330 +222,7 @@ class Space:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
-        elif menu_id == 4:  # Помощь "как искать?"
-            message_text = "Перед поиском имеет смысл выбрать сферу деятельности мест (🌎), которые вы хотите увидеть." \
-                           " Для уточнения можете выбрать направление (📚). Что бы начать поиск мест нажмите на кнопку" \
-                           " внизу. Результаты будут показаны на экране по одному в порядке увеличения расстояния от" \
-                           " Вас. Что бы связаться с создателем места нажмите на его имя возле значка 💬." \
-                           " Вы сможете найти машину от сервиса @BelbekTaxiBot к месту или заказать оттуда" \
-                           " доставку нажатием кнопок под описанием места. Там же Вы найдёте кнопки для просмотра" \
-                           " места на карте и его фото. Перелистывать результаты поиска можно кнопками в внизу меню." \
-                           " Для завершения поиска нажмите ОК. Для обсуждения любых вопросов связанных работой с" \
-                           " ботом, обратитесь в канал поддержки @belbekspace"
-
-            keyboard.row(types.InlineKeyboardButton(text=f"Спасибо",
-                         callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 5:  # Меню редактирования
-            self.users.hset(user_id, b'parent_menu', menu_id)
-            self.users.hdel(user_id, b'cat_sel')
-
-            item = int(self.users.hget(user_id, b'item'))
-            self.new_label.delete(user_id)
-            menu_edit_items = ['Как создавать места❓',
-                               '❓', '🏜 Новое место',
-                               '📝', '🗺', '📸', '📚', '❌',
-                               '⏪', '🆗', '⏩', '🔄', '⏮']
-            keyboard_line = []
-            message_text = "Здесь будут доступны для редактирования все ваши места, но пока их у вас нет"
-            if str(user_id).encode() in self.my_labels.keys():
-                keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[1], callback_data=f"go_16"))
-                query = "SELECT * from labels WHERE id = %s"
-                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-
-                self.cursor.execute(query, (label_id,))
-                row = self.cursor.fetchone()
-                message_text = f"🏕 {item + 1} из {self.my_labels.zcard(user_id)} Ваших мест:\n\n" \
-                               f"📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
-                               f"💬 @{message.chat.username}"
-            else:
-                keyboard.row(types.InlineKeyboardButton(text=menu_edit_items[0], callback_data=f"go_16"))
-
-            keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[2], callback_data=f"go_8"))
-
-            keyboard.row(*keyboard_line)
-            if str(user_id).encode() in self.my_labels.keys():
-                keyboard_line = [types.InlineKeyboardButton(text=menu_edit_items[3], callback_data=f"go_14"),
-                                 types.InlineKeyboardButton(text=menu_edit_items[4], callback_data=f"go_20"),
-                                 types.InlineKeyboardButton(text=menu_edit_items[5], callback_data=f"go_13"),
-                                 types.InlineKeyboardButton(text=menu_edit_items[6], callback_data=f"go_3"),
-                                 types.InlineKeyboardButton(text=menu_edit_items[7], callback_data=f"go_15")]
-                keyboard.row(*keyboard_line)
-            keyboard_line = []
-
-            if item > 0:
-                keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[8],
-                                                                callback_data=f"select_{item-1}"))
-            else:
-                keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[12],
-                                                                callback_data=f"none"))
-            keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[9], callback_data=f"go_0"))
-            if str(user_id).encode() in self.my_labels.keys():
-
-                if item < self.my_labels.zcard(user_id) - 1:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[10],
-                                                                    callback_data=f"select_{item+1}"))
-                else:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_edit_items[11],
-                                                                    callback_data=f"select_0"))
-            keyboard.row(*keyboard_line)
-
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 6:  # Меню просмотра результатов поиска
-            self.users.hset(user_id, b'parent_menu', menu_id)
-            menu_search_items = ['🚕➡️⛺️', '⬅️🚕⛺️',
-                                 '🗺 Карта', 'Фото 📸',
-                                 '⏪', '🆗', '⏩', '🔄', '⏮']
-            new_search = False
-            if str(user_id).encode() not in self.search.keys():
-                self.do_search(message)
-
-                self.users.hset(user_id, b'item', 0)
-                new_search = True
-
-            message_text = "🤷‍ Ничего не найдено! Этот раздел еще не начал наполняться."
-            if str(user_id).encode() in self.search.keys():
-
-                item = int(self.users.hget(user_id, b'item'))
-                query = "SELECT * from labels WHERE id=%s"
-
-                label_id = int(self.search.zrange(user_id, 0, -1)[item])
-                self.cursor.execute(query, (label_id,))
-                row = self.cursor.fetchone()
-                message_text = f"🏕 {item + 1} из {self.search.zcard(user_id)} результатов поиска\n"
-                if self.users.hexists(user_id, b'category'):
-                    message_text = message_text + f"🌎 {self.users.hget(user_id, b'category').decode('utf-8')}\n"
-                if self.users.hexists(user_id, b'subcategory'):
-                    message_text = message_text + f"📚 {self.users.hget(user_id, b'subcategory').decode('utf-8')}\n"
-                search_s = self.users.hget(user_id, b'search_string').decode('utf-8')
-                if len(search_s) > 0:
-                    message_text = message_text + f"📖 '{search_s}' (поиск по словам еще не работает)\n"
-                message_text = message_text + f"\n📝 {row[1]}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}\n" \
-                                              f"🚙 {float(self.search.zscore(user_id, label_id))/1000:.1f} км\n" \
-                                              f"💬 @{row[12]}"
-
-                keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[0], callback_data=f"go_11"),
-                                 types.InlineKeyboardButton(text=menu_search_items[1], callback_data=f"go_12")]
-                keyboard.row(*keyboard_line)
-                keyboard_line = [types.InlineKeyboardButton(text=menu_search_items[2], callback_data=f"go_10"),
-                                 types.InlineKeyboardButton(text=menu_search_items[3], callback_data=f"go_13")]
-                keyboard.row(*keyboard_line)
-                keyboard_line = []
-                if item > 0:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[4],
-                                                                    callback_data=f"select_{item - 1}"))
-                else:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[8],
-                                                                    callback_data=f"none"))
-                keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[5], callback_data=f"go_0"))
-                if item < self.search.zcard(user_id) - 1:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[6],
-                                                                    callback_data=f"select_{item + 1}"))
-                else:
-                    keyboard_line.append(types.InlineKeyboardButton(text=menu_search_items[7],
-                                                                    callback_data=f"select_0"))
-                keyboard.row(*keyboard_line)
-            else:
-                keyboard.row(types.InlineKeyboardButton(text=menu_search_items[5], callback_data=f"go_0"))
-
-            if new_search:
-
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-                try:
-                    bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
-                except Exception as error:
-                    print("Error del message: ", error)
-            else:
-                try:
-                    bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                          text=message_text, reply_markup=keyboard)
-                except Exception as error:
-                    print("Error: ", error)
-                    bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 7:  # Задать начальную локацию
-
-            geo_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-            geo_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
-            message_text = "Боту следует знать, где Вы находитесь, что бы выдавать результы поиска в порядке удаления" \
-                           " от Вас, для этого отправьте свою геопозицию нажав на кнопку ниже или " \
-                           " напишите текстом название села" \
-                           " (также Вы можете прислать координаты через запятую)."
-
-            bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
-            bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
-            next_id = int(self.users.hget(user_id, b'message_id')) + 1
-            self.users.hset(user_id, b'message_id', next_id)
-            self.users.hset(user_id, b'parent_menu', 0)
-
-        elif menu_id == 8:  # Меню создания нового места
-            if message.chat.username is not None:
-                #  self.users.hset(user_id, b'username', message.chat.username)
-                self.users.hset(user_id, b'parent_menu', menu_id)
-                self.users.hdel(user_id, b'cat_sel')
-                if str(user_id).encode() not in self.new_label.keys():
-                    self.go_menu(bot, message, 14)
-                    return
-
-                if not self.new_label.hexists(user_id, 'geo_lat'):
-                    self.new_label.hset(user_id, b'geo_lat', self.users.hget(user_id, b'geo_lat'))
-                    self.new_label.hset(user_id, b'geo_long', self.users.hget(user_id, b'geo_long'))
-                    self.go_menu(bot, message, 20)
-                    return
-                if not self.new_label.hexists(user_id, 'subcategory_list'):
-                    self.go_menu(bot, message, 3)
-                    return
-                self.go_menu(bot, message, 9)
-                return
-
-            else:
-                message_text = f"‼️ Задайте имя пользователя в аккаунте Telegram," \
-                               f" что бы бот мог направить Вам гостей и жителей долины ‼️ Для этого зайдите в" \
-                               f" настройки, справа сверху нажмите 'Изменить' и заполните" \
-                               f" поле 'Имя пользователя'."
-                keyboard.row(
-                    types.InlineKeyboardButton(text=f"☑️ Готово",
-                                               callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-                try:
-                    bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                          text=message_text, reply_markup=keyboard)
-                except Exception as error:
-                    print("Error: ", error)
-                    bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 9:  # Уведомление создание места
-            self.users.hset(user_id, b'item', 0)
-            message_text = " 🥳 Новое место появилось в Belbek.Space ! 🎊"
-
-            query = "INSERT INTO labels (about, subcategory, geo_lat, geo_long, author, time_added, username) " \
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            self.cursor.execute(query, (self.new_label.hget(user_id, b'about').decode('utf-8'),
-                                        json.loads(self.new_label.hget(user_id,
-                                                                       b'subcategory_list').decode('utf-8')),
-                                        float(self.new_label.hget(user_id, b'geo_lat')),
-                                        float(self.new_label.hget(user_id, b'geo_long')),
-                                        user_id,
-                                        cur_time,
-                                        message.chat.username))
-
-            self.connection.commit()
-
-            query = "SELECT LASTVAL()"
-            self.cursor.execute(query)
-            row = self.cursor.fetchone()
-            label_id = row[0]
-            self.my_labels.zadd(user_id, {label_id: cur_time})
-
-            keyboard.row(types.InlineKeyboardButton(text="Замечательно", callback_data=f"go_5"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 10:  # Показать на карте
-
-            label_id = int(self.search.zrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-            query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
-
-            self.cursor.execute(query, (label_id,))
-            row = self.cursor.fetchone()
-
-            lat = row[0]
-            long = row[1]
-
-            keyboard.row(types.InlineKeyboardButton(text="OK",
-                                                callback_data=f"dgo_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            bot.send_location(chat_id=message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
-            bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
-
-        elif menu_id == 11:  # Показ такси
-            location = {'latitude': float(self.users.hget(user_id, b'geo_lat')),
-                        'longitude': float(self.users.hget(user_id, b'geo_long'))}
-            message_text = self.taxi.go_search(location, False)
-            keyboard.row(
-                types.InlineKeyboardButton(text=f"Спасибо",
-                                           callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 12:  # Показ доставки через такси
-            label_id = int(self.search.zrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-            query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
-            self.cursor.execute(query, (label_id,))
-            row = self.cursor.fetchone()
-            lat = row[0]
-            long = row[1]
-            location = {'latitude': lat,
-                        'longitude': long}
-            message_text = self.taxi.go_search(location, True)
-            keyboard.row(
-                types.InlineKeyboardButton(text=f"Спасибо",
-                                           callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 13:  # Уведомление "в разработке"
-            message_text = "Эта часть бота в разработке. Простите, но придётся подождать"
-            keyboard.row(types.InlineKeyboardButton(text=f"Конечно, я подожду, спасибо",
-                                                callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 14:  # Изменение описания места
-            message_text = f"Описание вашего места:\n\n📝 "
-
-            if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-                query = "SELECT about from labels WHERE id = %s"
-                self.cursor.execute(query, (label_id,))
-                row = self.cursor.fetchone()
-                message_text = message_text + row[0]
-
-            elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                keyboard.row(types.InlineKeyboardButton(text=f"Отмена", callback_data=f"go_5"))
-                if self.new_label.hexists(user_id, b'about'):
-                    message_text = message_text + self.new_label.hget(user_id, b'about').decode('utf-8')
-                else:
-                    message_text = message_text + " 🤷🏽 пусто!  "
-
-            message_text = message_text + "\n\n Отправьте текстом новое описание или нажмите 'Готово'"
-
-            keyboard.row(types.InlineKeyboardButton(text=f"☑️ Готово",
-                                                callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 15:  # Подтверждение удаления
+        elif menu_id == 4:  # Подтверждение удаления
             message_text = "Вы действительно хотите ❌ убрать ❌ это место из нашего космоса?"
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
                                                 callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
@@ -609,104 +234,8 @@ class Space:
             except Exception as error:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 16:  # Помощь "как создать место?"
-
-            message_text = f" Место 🏜️ - это точка на карте, в которой происходит производство или реализация" \
-                           f" ваших товаров и услуг." \
-                           f" Например, это может быть точка продажи хлеба, сдаваемая в аренду недвижимость," \
-                           f" студия массажа, или, в случае, если у" \
-                           f" вас доставка по долине, место производства. Эта точка будет" \
-                           f" использоваться для навигации к вам, если это потребуется, или просто давать информацию" \
-                           f" о том, из какой части долины будет производиться доставка." \
-                           f" Для создания нового места нажмите на кнопку 'Новое место', в открывшемся меню Вам будет" \
-                           f" предложено заполнить описание (лимит {ABOUT_LIMIT} символов). Также Вам следует" \
-                           f" указать как минимум одно из направлений деятельности из предложенных ботом." \
-                           f" Вы можете создать не больше одного места в каждом из направлений, но место можете иметь" \
-                           f" несколько направлений. После этого у Вас появится возможность опубликовать место." \
-                           f" При желании Вы можете загрузить фото и изменить геолокацию публикуемого места" \
-                           f" (по-умолчанию выставляется Ваше текущее местоположение). После создания вы сможете" \
-                           f" вносить любые изменения (пояснения к кнопкам: 📝 - описание, 🗺 - место на карте," \
-                           f" 📸 - фото, 📚 - направления, ❌ - удалить). Обсудить набор направлений деятельности," \
-                           f" замечания по работе и обнаруженные ошибке Вы можете в канале поддержки @belbekspace "
-
-            keyboard.row(
-                types.InlineKeyboardButton(text=f"Спасибо",
-                                           callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-        elif menu_id == 17:  #
+        elif menu_id == 5:  # Редактирование итема
             pass
-        elif menu_id == 18:  #
-            pass
-        elif menu_id == 19:  #
-            pass
-        elif menu_id == 20:  # Геолокация текущая
-
-            if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                button_text = "Да, это здесь"
-                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-                query = "SELECT geo_lat, geo_long from labels WHERE id=%s"
-                self.cursor.execute(query, (label_id,))
-                row = self.cursor.fetchone()
-                lat = row[0]
-                long = row[1]
-            elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                button_text = "Да, это здесь"
-                lat = self.new_label.hget(user_id, b'geo_lat')
-                long = self.new_label.hget(user_id, b'geo_long')
-            else:
-                lat = float(self.users.hget(user_id, b'geo_lat'))
-                long = float(self.users.hget(user_id, b'geo_long'))
-                button_text = "Да, я здесь"
-
-            keyboard.row(types.InlineKeyboardButton(text=button_text, callback_data=f"dgo_23"))
-            keyboard.row(types.InlineKeyboardButton(text="Изменить", callback_data=f"dgo_21"))
-
-
-            bot.send_location(chat_id=message.chat.id, longitude=long, latitude=lat, reply_markup=keyboard)
-            try:
-                bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
-            except Exception as error:
-                print("Error del geo-request message: ", error)
-
-        elif menu_id == 21:  # Предупреждение об локации
-            message_text = "Не забудьте включить геолокацию, если хотите что бы бот сам определил Ваше местонахождение"
-            keyboard.row(types.InlineKeyboardButton(text=f"Хорошо", callback_data=f"go_22"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-
-        elif menu_id == 22:  # Смена локации
-
-            geo_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-            geo_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
-            message_text = "Отправьте геопозицию нажав кнопку ниже или напишите текстом название села" \
-                           " (также Вы можете прислать координаты через запятую). " \
-                           "/cancel для отмены"
-
-            bot.send_message(user_id, message_text, reply_markup=geo_keyboard)
-            bot.delete_message(chat_id=message.chat.id, message_id=int(self.users.hget(user_id, b'message_id')))
-            next_id = int(self.users.hget(user_id, b'message_id')) + 1
-            self.users.hset(user_id, b'message_id', next_id)
-
-        elif menu_id == 23:  # Уведомление о смене локации
-            message_text = "Геолокация подтвеждена"
-            keyboard.row(types.InlineKeyboardButton(text=f"Ок",
-                                                callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
 
     # Формирование списка поиска
     def do_search(self, message):
@@ -714,7 +243,6 @@ class Space:
         user_id = message.chat.id
         # Перебираем все метки
 
-        # поиск по слову попозже будет
         query = "SELECT * from labels"  # пересечение категорий ввести и поиск по слову!
         self.cursor.execute(query)
         while 1:
@@ -723,56 +251,16 @@ class Space:
                 break
 
             label_id = row[0]
-            # это говнокод фильтрующий пересечение категорий, запрос фильтрации через запрос в бд еще не освоил
-            # короче, переделаю потом, а пока так
-            label_cat_list = []
             label_sub_list = row[3]
+            label_sub_list.intersection()
 
-            for label_sub in label_sub_list:
-                for cat, sub_list in self.categories.items():
-                    if label_sub in sub_list:
-                        label_cat_list.append(cat)
-            if not self.users.hexists(user_id, b'category') or \
-                    self.users.hget(user_id, b'category').decode('utf-8') in label_cat_list:
-                if not self.users.hexists(user_id, b'subcategory') or \
-                        self.users.hget(user_id, b'subcategory').decode('utf-8') in label_sub_list:
-                    dist = int(1000 * SpaceTaxi.get_distance(float(self.users.hget(user_id, b'geo_lat')),
-                                                             float(self.users.hget(user_id, b'geo_long')),
-                                                             row[6], row[7]))
-                    self.search.zadd(user_id, {label_id: dist})
 
-    # Получены координаты тем или иным образом
-    def go_location(self, bot, message, location):
-        user_id = message.chat.id
-        if int(self.users.hget(user_id, b'menu')) in [7, 22]:
-            if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
 
-                query = "UPDATE labels SET geo_lat = %s, geo_long = %s WHERE id = %s"
-                self.cursor.execute(query, (location['latitude'], location['longitude'], label_id))
-                self.connection.commit()
-            elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                self.new_label.hset(user_id, b'geo_lat', location['latitude'])
-                self.new_label.hset(user_id, b'geo_long', location['longitude'])
-            else:  # 6
-                self.users.hset(user_id, b'geo_lat', location['latitude'])
-                self.users.hset(user_id, b'geo_long', location['longitude'])
-            self.go_menu(bot, message, 20)
 
-    def service(self):
-        for b_user_id in self.my_labels.keys():
-            self.my_labels.delete(b_user_id)
 
-        query_sel = "SELECT id, time_added, author from labels"
-        self.cursor.execute(query_sel)
-        while 1:
-            row_res = self.cursor.fetchone()
-            if row_res is None:
-                break
-            self.my_labels.zadd(int(row_res[2]), {row_res[0]: row_res[1]})
+
 
     def deploy(self):
-        self.service()
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
 
         # Стартовое сообщение
@@ -780,121 +268,128 @@ class Space:
         def start_message(message):
             user_id = message.chat.id
 
-            welcome_text = f"Приветствую Вас Жители и Гости Бельбекской Долины!" \
+            welcome_text = f"Здравствуйте Жители и Гости Бельбекской Долины!" \
                            f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
                            f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
-                           f" деятельности. Каждое объявление - это место в Долине. Место продажи товаров, мастерская" \
-                           f" или что-нибудь еще в зависимости от сферы деятельности."
-            keyboard = types.InlineKeyboardMarkup()
-            self.users.hset(user_id, b'menu', -1)
-            self.users.hset(user_id, b'parent_menu', 6)
+                           f" деятельности.\nКанал поддержки: https://t.me/belbekspace\n" \
+                           f"Для публикации собственных товаров/услуг зайдите в меню 'Мои затеи'" \
+                                              " и нажмите на кнопку '➕ Новая затея' "
 
-            keyboard.row(types.InlineKeyboardButton(text=f"Хорошо, приступим!", callback_data=f"go_7"))
-            bot.send_message(user_id, welcome_text, reply_markup=keyboard)
-            mess_id = 2
-            if self.users.hexists(int(user_id), b'message_id'):
-                mess_id = int(self.users.hget(int(user_id), b'message_id'))
-            for i in range(3):
-                if mess_id - i < message.message_id:
-                    try:
-                        bot.delete_message(chat_id=message.chat.id, message_id=mess_id - i)
-                    except Exception as e:
-                        print("Error: ", e)
-            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+            self.users.hset(user_id, b'item', -1)
+            self.users.hset(user_id, b'edit', 0)
+            self.check_th()
+            bot.send_message(user_id, welcome_text, reply_markup=self.menu_keyboard)
+
+        @bot.message_handler(commands=['get_all_items'])
+        def get_all_message(message):
+            user_id = message.chat.id
+            print(f"{user_id} : {message.text}")
+            if user_id == BOTCHAT_ID:
+                query = "SELECT id from labels"
+                self.cursor.execute(query)
+                while 1:
+                    row = self.cursor.fetchone()
+                    if row is None:
+                        break
+                    self.send_item(bot, user_id, row[0], is_command=True)
+
+        @bot.message_handler(commands=['set_item'])
+        def set_item_message(message):
+            user_id = message.chat.id
+            print(f"{user_id} : {message.text}")
+            if user_id == BOTCHAT_ID:
+                id_pos = 4 + message.text.find('\nid:')
+                id_pos_end = message.text.find('\n',id_pos)
+                item_pos = 6 + message.text.find('\nitem:', id_pos_end)
+                if id_pos < 4 or item_pos < 6:
+                    return
+                item_id = message.text[id_pos:id_pos_end]
+                item = message.text[item_pos:]
+                if len(item) == 0:
+                    self.deep_space.delete(item_id)
+                else:
+                    self.deep_space.set(item_id, item)
 
         # Отмена ввода
         @bot.message_handler(commands=['cancel'])
         def cancel_message(message):
             user_id = message.chat.id
-            if int(self.users.hget(user_id, b'menu')) == 22:
-                self.go_menu(bot, message, 20)
-            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+            self.users.hset(user_id, b'edit', 0)
+            self.check_th()
+            bot.send_message(user_id, "Ввод отменён", reply_markup=self.menu_keyboard)
+            item_id = int(self.users.hget(user_id, b'item'))
+            if item_id == 0:
+                self.new_item_menu(bot, message)
+
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
         def message_text(message):
             user_id = message.chat.id
+            cur_time = int(time.time())
 
-            # Введена строка для поиска
-            if int(self.users.hget(user_id, b'menu')) == 0:
-                self.users.hset(user_id, b'search_string', message.text)
-                self.go_menu(bot, message, 6)
-
-            # Введена описание
-            if int(self.users.hget(user_id, b'menu')) == 14:
+            self.users.hset(user_id, b'last_login', cur_time)
+            print(f"{user_id} : {message.text}")
+            return
+            if int(self.users.hget(user_id, b'edit')) == 1 :
+                self.users.hset(user_id, b'edit', 0)
+                item_id = int(self.users.hget(user_id, b'item'))
+                message_id = int(self.users.hget(user_id, b'message_id'))
                 about = message.text[:ABOUT_LIMIT]
-                if int(self.users.hget(user_id, b'parent_menu')) == 5:
-
-                    label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+                # Редактируем итем
+                if item_id > 0:
                     query = "UPDATE labels SET about = %s WHERE id = %s"
-                    self.cursor.execute(query, (about, label_id))
+                    self.cursor.execute(query, (about, item_id))
                     self.connection.commit()
-                elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                    self.new_label.hset(user_id, b'about', about)
+                    try:
+                        self.check_th()
+                        bot.edit_message_text(chat_id=user_id, message_id=message_id,
+                                              text=message_text)
+                        self.check_th()
+                        bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
+                        self.check_th()
+                        self.send_item(bot, user_id, about, is_command=True)
+                    except Exception as error:
+                        print("Error: ", error)
 
-                self.go_menu(bot, message, 14)
-                '''
-                try:
-                    bot.delete_message(chat_id=message.chat.id,
-                                       message_id=int(self.users.hget(user_id, b'message_id')))
-                except Exception as e:
-                    print("Error: ", e)
-                '''
+                if item_id == 0:
+                    query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
+                            "VALUES (%s, %s, %s, %s, %s)"
+                    self.cursor.execute(query, (about, [], user_id, cur_time, message.chat.username))
 
-            # Обработка отправления текстом координат или названия пункта
-            if int(self.users.hget(user_id, b'menu')) in [7, 22]:
-                if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
-                    location = {'latitude': float(message.text.split(',')[0]),
-                                'longitude': float(message.text.split(',')[1])}
-                else:
-                    location = self.get_point(message.text)
-                self.go_location(bot, message, location)
+                    self.connection.commit()
+                    query = "SELECT LASTVAL()"
+                    self.cursor.execute(query)
+                    row = self.cursor.fetchone()
+                    self.users.hset(user_id, b'item', int(row[0]))
+                    try:
+                        self.check_th()
+                        self.send_item(bot, user_id, row[0], is_edited=True, message_id=message_id)
+                        self.check_th()
+                        self.send_item(bot, user_id, row[0], is_command=True)
 
-            # Удаление сообщений
-            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-
-        # Реакция на отправление геопозиции
-        @bot.message_handler(content_types=['location'])
-        def message_geo(message):
-            location = {'longitude': message.location.longitude, 'latitude': message.location.latitude}
-            self.go_location(bot, message, location)
-            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-
-        # Удаление сообщений всех типов
-        @bot.message_handler(content_types=CONTENT_TYPES)
-        def message_any(message):
-            bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+                    except Exception as error:
+                        print("Error: ", error)
+                    self.go_menu(bot, message, 3)
+            if message.text == self.menu_items[0]:
+                self.go_menu(bot, message, 1)
+            if message.text == self.menu_items[1]:
+                pass
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
             user_id = call.message.chat.id
+            cur_time = int(time.time())
 
+            self.users.hset(user_id, b'last_login', cur_time)
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
 
-            # Чистим старые сообщения
-            if not self.users.hexists(user_id, b'clean_id'):
-                self.users.hset(user_id, b'clean_id', call.message.message_id - 1)
-
-            message_id_clean = int(self.users.hget(user_id, b'clean_id'))
-            while message_id_clean < call.message.message_id - 1:
-                message_id_clean += 1
-                if CLEAR_OLD_MESSAGES:
-                    try:
-                        bot.delete_message(chat_id=call.message.chat.id, message_id=message_id_clean)
-                    except Exception as e:
-                        print("Error: ", e)
-            self.users.hset(user_id, b'clean_id', call.message.message_id - 1)  # Фиксируем ID сообщения
 
             # Передаём управление главной функции
             if call.data[:2] == "go":
                 self.go_menu(bot, call.message, int(call.data.split('_')[1]))
 
-            # Передаём управление главной функции с удалением предыдущего сообщения
-            if call.data[:3] == "dgo":
-
-                self.go_menu(bot, call.message, int(call.data.split('_')[1]))
-                bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
             # Выбираем сферу для поиска
             if call.data[:4] == "ucat":
@@ -931,17 +426,12 @@ class Space:
                 cat = call.data.split('_')[1]
 
                 categories = []  # Извлекаем список направлений у метки
-                if int(self.users.hget(user_id, b'parent_menu')) == 5:
 
-                    label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-                    query = "SELECT subcategory FROM labels WHERE id = %s"
-                    self.cursor.execute(query, (label_id,))
-                    row = self.cursor.fetchone()
-                    categories = row[0]
-                elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                    if self.new_label.hexists(user_id, b'subcategory_list'):
-                        categories = json.loads(self.new_label.hget(user_id,
-                                                                    b'subcategory_list').decode('utf-8'))
+                label_id = int(self.users.hget(user_id, b'item'))
+                query = "SELECT subcategory FROM labels WHERE id = %s"
+                self.cursor.execute(query, (label_id,))
+                row = self.cursor.fetchone()
+                categories = row[0]
 
                 if cat in categories:
                     categories.remove(cat)
@@ -949,18 +439,13 @@ class Space:
                     categories.append(cat)
 
                 # Сохраняем список направлений
-                if int(self.users.hget(user_id, b'parent_menu')) == 5:
-                    if len(categories) > 0:
 
-                        label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
-                        query = "UPDATE labels SET subcategory = %s WHERE id = %s"
-                        self.cursor.execute(query, (categories, label_id))
-                        self.connection.commit()
-                elif int(self.users.hget(user_id, b'parent_menu')) == 8:
-                    if len(categories) > 0:
-                        self.new_label.hset(user_id, b'subcategory_list', json.dumps(categories))
-                    else:
-                        self.new_label.hdel(user_id, b'subcategory_list')
+                if len(categories) > 0:
+
+                    label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+                    query = "UPDATE labels SET subcategory = %s WHERE id = %s"
+                    self.cursor.execute(query, (categories, label_id))
+                    self.connection.commit()
 
                 self.go_menu(bot, call.message, 3)
 
