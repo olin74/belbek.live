@@ -329,7 +329,9 @@ class Space:
             cur_time = int(time.time())
 
             self.users.hset(user_id, b'last_login', cur_time)
-            print(f"{user_id} : {message.text}")
+
+
+            bot.send_message(BOTCHAT_ID, f"{user_id} : {message.text}")
             return
             if int(self.users.hget(user_id, b'edit')) == 1 :
                 self.users.hset(user_id, b'edit', 0)
@@ -443,6 +445,7 @@ class Space:
                 if len(categories) > 0:
 
                     label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+
                     query = "UPDATE labels SET subcategory = %s WHERE id = %s"
                     self.cursor.execute(query, (categories, label_id))
                     self.connection.commit()
