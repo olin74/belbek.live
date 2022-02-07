@@ -111,6 +111,8 @@ class Space:
                 message_text = row[1]
                 if is_command:
                     message_text = f"/set_item {item_id}@{DS_ID}:{message_text}"
+                    if row[12] is not None and len(row[12]) > 0:
+                        message_text = message_text + f"\nhttps://t.me/{row[12]}"
                 else:
                     message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
                     if row[12] is not None and len(row[12]) > 0:
@@ -124,8 +126,7 @@ class Space:
                                                                 callback_data=f"del_{item_id}"))
             elif is_command:
                 message_text = f"/set_item {item_id}@{DS_ID}:"
-                if message.chat.username is not None :
-                    message_text = message_text + f"\nhttps://t.me/{message.chat.username}"
+
         keyboard = types.InlineKeyboardMarkup()
         keyboard.row(*item_menu)
         self.check_th()
