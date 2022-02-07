@@ -110,13 +110,14 @@ class Space:
             if row is not None:
                 message_text = row[1]
                 if is_command:
-                    message_text = f"/set_item {item_id}@{DS_ID}:{message_text}"
+                    message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
                     if row[12] is not None and len(row[12]) > 0:
+
                         message_text = message_text + f"\nhttps://t.me/{row[12]}"
                 else:
                     message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
                     if row[12] is not None and len(row[12]) > 0:
-                        message_text = message_text + f"\n💬 @{row[12]}"
+                        message_text = message_text + f"\nhttps://t.me/{row[12]}"
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
@@ -125,7 +126,7 @@ class Space:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                 callback_data=f"del_{item_id}"))
             elif is_command:
-                message_text = f"/set_item {item_id}@{DS_ID}:"
+                message_text = f"/set_item {item_id}@{DS_ID}"
 
         keyboard = types.InlineKeyboardMarkup()
         keyboard.row(*item_menu)
@@ -296,8 +297,8 @@ class Space:
             user_id = message.chat.id
             print(f"{user_id} : {message.text}")
             if user_id == BOTCHAT_ID:
-                id_pos = 0
-                id_pos_end = message.text.find(':', id_pos)
+                id_pos = message.text.find(' ', 0)
+                id_pos_end = message.text.find(' ', id_pos+1)
                 item_pos = 1 + id_pos_end
                 if id_pos_end < 1 or item_pos < 2:
                     return
