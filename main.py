@@ -110,7 +110,7 @@ class Space:
             if row is not None:
                 message_text = row[1]
                 if is_command:
-                    message_text = f"/set_item\nid:{item_id}@{DS_ID}\nts:{int(time.time())}\nitem:{message_text}"
+                    message_text = f"/set_item {item_id}@{DS_ID}:{message_text}"
                 else:
                     message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
                     if row[12] is not None and len(row[12]) > 0:
@@ -123,7 +123,7 @@ class Space:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                 callback_data=f"del_{item_id}"))
             elif is_command:
-                message_text = f"/set_item\nid:{item_id}@{DS_ID}\nts:{int(time.time())}\nitem:"
+                message_text = f"/set_item {item_id}@{DS_ID}:"
         keyboard = types.InlineKeyboardMarkup()
         keyboard.row(*item_menu)
         self.check_th()
@@ -255,11 +255,6 @@ class Space:
             label_sub_list.intersection()
 
 
-
-
-
-
-
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
 
@@ -298,10 +293,10 @@ class Space:
             user_id = message.chat.id
             print(f"{user_id} : {message.text}")
             if user_id == BOTCHAT_ID:
-                id_pos = 4 + message.text.find('\nid:')
-                id_pos_end = message.text.find('\n',id_pos)
-                item_pos = 6 + message.text.find('\nitem:', id_pos_end)
-                if id_pos < 4 or item_pos < 6:
+                id_pos = 0
+                id_pos_end = message.text.find(':', id_pos)
+                item_pos = 1 + id_pos_end
+                if id_pos_end < 1 or item_pos < 2:
                     return
                 item_id = message.text[id_pos:id_pos_end]
                 item = message.text[item_pos:]
