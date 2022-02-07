@@ -11,7 +11,8 @@ import time
 import os
 
 # Устанавливаем константы
-BOTCHAT_ID = -1001508419451 # 665812965 - whitejoe  # Айди чата для ботов
+BOTCHAT_ID = -1001508419451  # Айди чата для ботов
+BEBUG_ID = 665812965 # Дебаг whitejoe
 ABOUT_LIMIT = 2000  # Лимит символов в описании
 DS_ID = "belbek_space"
 
@@ -298,16 +299,20 @@ class Space:
             print(f"{user_id} : {message.text}")
             if user_id == BOTCHAT_ID:
                 id_pos = message.text.find(' ', 0)
-                id_pos_end = message.text.find(' ', id_pos+1)
-                item_pos = 1 + id_pos_end
-                if id_pos_end < 1 or item_pos < 2:
+                if id_pos < 0:
                     return
-                item_id = message.text[id_pos:id_pos_end]
-                item = message.text[item_pos:]
-                if len(item) == 0:
+                id_pos_end = message.text.find(' ', id_pos+1)
+                if id_pos_end < 0:
+                    item_id = message.text[id_pos+1:]
                     self.deep_space.delete(item_id)
+                    bot.send_message(DEBUG_ID, f"{item_id}")
                 else:
+                    item_pos = 1 + id_pos_end
+                    item_id = message.text[id_pos:id_pos_end]
+                    item = message.text[item_pos:]
+
                     self.deep_space.set(item_id, item)
+                    bot.send_message(DEBUG_ID,f"{item_id} {self.deep_space.get(item_id)}")
 
         # Отмена ввода
         @bot.message_handler(commands=['cancel'])
