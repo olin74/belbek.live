@@ -11,7 +11,7 @@ import time
 import os
 
 # Устанавливаем константы
-BOTCHAT_ID = 665812965  # Айди чата для ботов
+BOTCHAT_ID = -1001508419451 # 665812965 - whitejoe  # Айди чата для ботов
 ABOUT_LIMIT = 2000  # Лимит символов в описании
 DS_ID = "belbek_space"
 
@@ -331,7 +331,7 @@ class Space:
             self.users.hset(user_id, b'last_login', cur_time)
 
 
-            bot.send_message(BOTCHAT_ID, f"{user_id} : {message.text}")
+
             return
             if int(self.users.hget(user_id, b'edit')) == 1 :
                 self.users.hset(user_id, b'edit', 0)
