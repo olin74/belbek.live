@@ -269,7 +269,9 @@ class Space:
         count = 0
         keyboard = types.InlineKeyboardMarkup()
         # Deep space
+
         category = self.users.hget(user_id, "category").decode("utf-8")
+        message_text = f"{category}"
         if category == self.additional_scat[0]:
 
             for item_id in self.deep_space.keys():
@@ -281,8 +283,9 @@ class Space:
 
             target_subcategory_list = self.categories[category]
             if self.users.hexists(user_id, "subcategory"):
-                target_subcategory_list = [self.users.hget(user_id, "subcategory").decode('utf-8')]
-
+                sub_c = self.users.hget(user_id, "subcategory").decode('utf-8')
+                target_subcategory_list = [sub_c]
+                message_text = message_text + f"\n{sub_c}"
             # Перебираем все метки
             query = "SELECT * from labels"
             self.cursor.execute(query)
@@ -299,7 +302,8 @@ class Space:
         self.users.hdel(user_id, "category")
         self.users.hdel(user_id, "subcategory")
         self.check_th()
-        message_text = f"Найдено {count} затей:"
+
+        message_text = message_text + f"\nНайдено {count} затей:"
         try:
             bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                   text=message_text, reply_markup=keyboard)
