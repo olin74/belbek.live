@@ -226,7 +226,7 @@ class Space:
             message_text = "Вы действительно хотите ❌ убрать ❌ это место из нашего космоса?"
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
                                                     callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
-            keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"del_label"))
+            keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"cdel_label"))
 
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -261,15 +261,6 @@ class Space:
                 self.send_item(bot, user_id, item_id, is_edited=True)
                 count += 1
         self.new_item_menu(bot, message)
-        message_text = f"У вас {count} затей:"
-        self.check_th()
-        try:
-            bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                  text=message_text, reply_markup=self.menu_keyboard)
-        except Exception as error:
-            print("Error: ", error)
-            bot.send_message(user_id, message_text, reply_markup=self.menu_keyboard)
-
 
     # Формирование списка поиска
     def do_search(self, bot, message):
@@ -524,7 +515,7 @@ class Space:
                 self.users.hset(user_id, b'cat_sel', sel_category)
                 self.go_menu(bot, call.message, 3)
 
-            if call.data == "del_label":
+            if call.data == "cdel_label":
                 # Удаляю место из базы и из списка меток пользователя
                 label_id = int(self.users.hget(user_id, b'item'))
                 query = "DELETE FROM labels WHERE id = %s"
