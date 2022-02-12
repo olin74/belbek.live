@@ -281,7 +281,7 @@ class Space:
 
             target_subcategory_list = self.categories[category]
             if self.users.hexists(user_id, "subcategory"):
-                target_subcategory_list = [self.categories[self.users.hget(user_id, "subcategory").decode('utf-8')]]
+                target_subcategory_list = [self.users.hget(user_id, "subcategory").decode('utf-8')]
 
             # Перебираем все метки
             query = "SELECT * from labels"
