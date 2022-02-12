@@ -273,7 +273,7 @@ class Space:
         if category == self.additional_scat[0]:
 
             for item_id in self.deep_space.keys():
-                print(item_id, self.deep_space.hgetall(item_id))
+                print(item_id)
                 self.send_item(bot, user_id, int(item_id), is_ds=True)
         else:
             # Формируем список необходимых категорий
