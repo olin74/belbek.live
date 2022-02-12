@@ -1,4 +1,5 @@
-# coder: Olin (telegram: @whitejoe)
+# belbek.space product by belbek.tech
+# (telegram: @whitejoe)
 # use for free
 # donate bitcoin: 1MFy9M3g6nxFeg8X1GDYabMtYaiuRcYJPT
 
@@ -12,10 +13,10 @@ import os
 
 # Устанавливаем константы
 BOTCHAT_ID = -1001508419451  # Айди чата для ботов
-DEBUG_ID = 665812965 # Дебаг whitejoe
-DEBUG_ID = 665812965 # Дебаг whitejoe
+DEBUG_ID = 665812965  # Дебаг whitejoe
 ABOUT_LIMIT = 2000  # Лимит символов в описании
 DS_ID = "belbek_space"
+
 
 class Space:
     def __init__(self):
@@ -36,8 +37,8 @@ class Space:
         clean_id
         geo_long
         geo_lat
-        category
-        subcategory
+          category
+          subcategory
         search_string
         cat_sel
         '''
@@ -76,12 +77,12 @@ class Space:
             self.categories = json.load(json_file)
 
         self.menu_items = ['🏕 Поиск 🏕', '🧞 Мои затеи']
-        self.edit_items = ['Изменить', '📚' , '❌']
+        self.edit_items = ['Изменить', '📚', '❌']
         self.menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
         self.menu_keyboard.row(types.KeyboardButton(text=self.menu_items[0]),
                                types.KeyboardButton(text=self.menu_items[1]))
 
-        self.additional_scat = ['🎪 Ярмарка 🎪', '🌎 Все сферы 🌎', '📚 Все направления 📚']
+        self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚']
         self.limit_per_second = 5
         self.limit_counter = 0
         self.last_send_time = int(time.time())
@@ -100,7 +101,7 @@ class Space:
     def send_item(self, bot, user_id, item_id, is_command=False, is_edited=False, is_ds=False, message_id=None):
         item_menu = []
         if is_ds:
-            message_text = f"📝 {self.deep_space.get(item_id).decode('utf-8')}\n" \
+            message_text = f"📝 {self.deep_space.hget(item_id,'text').decode('utf-8')}\n" \
                            f"🆔 {item_id}\n" \
                            f"{self.additional_scat[0]}"
         else:
@@ -157,7 +158,6 @@ class Space:
 
         keyboard = types.InlineKeyboardMarkup()
 
-
         if menu_id == 0:  # Создание итема
             message_text = f"Пришлите описание вашей затей (лимит {ABOUT_LIMIT} символов)"
             self.check_th()
@@ -194,7 +194,6 @@ class Space:
 
         elif menu_id == 3:  # Редактирование направлений
 
-            selected_cats = []  # Список подкатегорий выбранного итема
             item_id = int(self.users.hget(user_id, b'item'))
             query = "SELECT subcategory from labels WHERE id=%s"
             self.cursor.execute(query, (item_id,))
@@ -218,7 +217,7 @@ class Space:
                 for cat in self.categories.keys():
                     keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
-                                 callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
+                                 callback_data=f"item_{item_id}"))
             keyboard.row(*keyboard_line)
 
             try:
@@ -231,7 +230,7 @@ class Space:
         elif menu_id == 4:  # Подтверждение удаления
             message_text = "Вы действительно хотите ❌ убрать ❌ это место из нашего космоса?"
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
-                                                callback_data=f"go_{int(self.users.hget(user_id, b'parent_menu'))}"))
+                                                    callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
             keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"del_label"))
 
             try:
@@ -244,22 +243,40 @@ class Space:
             pass
 
     # Формирование списка поиска
-    def do_search(self, message):
+    def do_search(self, bot, message):
 
         user_id = message.chat.id
-        # Перебираем все метки
+        count = 0
+        # Deep space
+        category = self.users.hget(user_id, "category").decode("utf-8")
+        if category == self.additional_scat[0]:
+            for item_id in self.deep_space.keys():
+                self.send_item(bot, user_id, item_id, is_ds=True)
+        else:
+            # Формируем список необходимых категорий
+            target_subcategory_list = self.categories(category)
+            if self.users.hexists(user_id, "subcategory"):
+                target_subcategory_list = [self.categories[self.users.hexists(user_id, "subcategory")]]
 
-        query = "SELECT * from labels"  # пересечение категорий ввести и поиск по слову!
-        self.cursor.execute(query)
-        while 1:
-            row = self.cursor.fetchone()
-            if row is None:
-                break
+            # Перебираем все метки
+            query = "SELECT * from labels"
+            self.cursor.execute(query)
+            while 1:
+                row = self.cursor.fetchone()
+                if row is None:
+                    break
 
-            label_id = row[0]
-            label_sub_list = row[3]
-            label_sub_list.intersection()
-
+                item_id = row[0]
+                label_sub_list = row[3]
+                if len(label_sub_list.intersection(target_subcategory_list)) > 0:
+                    self.send_item(bot, user_id, item_id)
+                    count += 1
+        self.users.hdel(user_id, "category")
+        self.users.hdel(user_id, "subcategory")
+        self.check_th()
+        message_text = f"Найдено {count} затей:"
+        bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                              text=message_text, reply_markup=self.menu_keyboard)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
@@ -274,7 +291,7 @@ class Space:
                            f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
                            f" деятельности.\nКанал поддержки: https://t.me/belbekspace\n" \
                            f"Для публикации собственных товаров/услуг зайдите в меню 'Мои затеи'" \
-                                              " и нажмите на кнопку '➕ Новая затея' "
+                           f" и нажмите на кнопку '➕ Новая затея' "
 
             self.users.hset(user_id, b'item', -1)
             self.users.hset(user_id, b'edit', 0)
@@ -305,27 +322,27 @@ class Space:
                 id_pos_end = message.text.find(' ', id_pos+1)
                 if id_pos_end < 0:
                     item_id = message.text[id_pos+1:]
-                    self.deep_space.delete(item_id)
+                    self.deep_space.hdel(item_id)
                     bot.send_message(DEBUG_ID, f"{item_id}")
                 else:
                     item_pos = 1 + id_pos_end
                     item_id = message.text[id_pos:id_pos_end]
                     item = message.text[item_pos:]
 
-                    self.deep_space.set(item_id, item)
-                    bot.send_message(DEBUG_ID,f"{item_id} {self.deep_space.get(item_id)}")
+                    self.deep_space.hset(item_id, 'text', item)
+                    # bot.send_message(DEBUG_ID,f"{item_id} {item}")
 
         # Отмена ввода
         @bot.message_handler(commands=['cancel'])
         def cancel_message(message):
             user_id = message.chat.id
-            self.users.hset(user_id, b'edit', 0)
-            self.check_th()
-            bot.send_message(user_id, "Ввод отменён", reply_markup=self.menu_keyboard)
-            item_id = int(self.users.hget(user_id, b'item'))
-            if item_id == 0:
-                self.new_item_menu(bot, message)
-
+            if int(self.users.hget(user_id, b'edit')) == 1:
+                self.users.hset(user_id, b'edit', 0)
+                self.check_th()
+                bot.send_message(user_id, "Ввод отменён", reply_markup=self.menu_keyboard)
+                item_id = int(self.users.hget(user_id, b'item'))
+                if item_id == 0:
+                    self.new_item_menu(bot, message)
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
@@ -335,10 +352,7 @@ class Space:
 
             self.users.hset(user_id, b'last_login', cur_time)
 
-
-
-            return
-            if int(self.users.hget(user_id, b'edit')) == 1 :
+            if int(self.users.hget(user_id, b'edit')) == 1:
                 self.users.hset(user_id, b'edit', 0)
                 item_id = int(self.users.hget(user_id, b'item'))
                 message_id = int(self.users.hget(user_id, b'message_id'))
@@ -351,7 +365,7 @@ class Space:
                     try:
                         self.check_th()
                         bot.edit_message_text(chat_id=user_id, message_id=message_id,
-                                              text=message_text)
+                                              text=about)
                         self.check_th()
                         bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
                         self.check_th()
@@ -387,54 +401,61 @@ class Space:
         def callback_worker(call):
             user_id = call.message.chat.id
             cur_time = int(time.time())
-
+            bot.answer_callback_query(call.id)
             self.users.hset(user_id, b'last_login', cur_time)
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
-            bot.answer_callback_query(call.id)
-            bot.send_message(user_id," Бот на реконструкции")
-            return
 
-            # Передаём управление главной функции
-            if call.data[:2] == "go":
-                self.go_menu(bot, call.message, int(call.data.split('_')[1]))
+            # Показываем итем на месте меню
+            if call.data[:4] == "item":
+                self.send_item(bot, user_id, int(call.data.split('_')[1]), is_edited=True,
+                               message_id=int(self.users.hget(user_id, b'message_id')))
 
+            # Редактирование итема
+            if call.data[:4] == "edit":
+                item = int(call.data.split('_')[1])
+                self.users.hset(user_id, b'item', item)
+                self.users.hset(user_id, b'edit', 1)
+                if item == 0:
+                    self.go_menu(bot, call.message, 0)
+                else:
+                    self.go_menu(bot, call.message, 5)
+
+            # Редактируем категорию
+            if call.data[:3] == "cat":
+                item_id = int(call.data.split('_')[1])
+                self.users.hset(user_id, b'item', item_id)
+                self.go_menu(bot, call.message, 3)
+            # Подтверждение удаления
+            if call.data[:3] == "del":
+                item_id = int(call.data.split('_')[1])
+                self.users.hset(user_id, b'item', item_id)
+                self.go_menu(bot, call.message, 4)
 
             # Выбираем сферу для поиска
             if call.data[:4] == "ucat":
                 category = call.data.split('_')[1]
                 self.users.hdel(user_id, b'subcategory')
                 self.users.hset(user_id, b'category', category)
-                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
-
-            # Выбираем все сферы для поиска
-            if call.data == "dcat":
-                self.users.hdel(user_id, b'category')
-                self.users.hdel(user_id, b'subcategory')
-                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
-
+                self.go_menu(bot, call.message, 2)
+            # Выбран глубокий космос
+            if call.data == "ds_cat":
+                self.users.hset(user_id, b'category', self.additional_scat[0])
+                self.do_search(bot, call.message)
             # Выбираем направление для поиска
             if call.data[:4] == "usub":
                 subcategory = call.data.split('_')[1]
                 self.users.hset(user_id, b'subcategory', subcategory)
-                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
+                self.do_search(bot, call.message)
 
             # Выбираем все направления для поиска
             if call.data == "dsub":
                 self.users.hdel(user_id, b'subcategory')
-                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
-
-            # Выбран item
-            if call.data[:6] == "select":
-                new_item = int(call.data.split('_')[1])
-                self.users.hset(user_id, b'item', new_item)
-                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
+                self.do_search(bot, call.message)
 
             # Отмечена подкатегория
             if call.data[:4] == "lcat":
                 cat = call.data.split('_')[1]
-
-                categories = []  # Извлекаем список направлений у метки
 
                 label_id = int(self.users.hget(user_id, b'item'))
                 query = "SELECT subcategory FROM labels WHERE id = %s"
@@ -451,7 +472,7 @@ class Space:
 
                 if len(categories) > 0:
 
-                    label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+                    label_id = int(self.users.hget(user_id, b'item'))
 
                     query = "UPDATE labels SET subcategory = %s WHERE id = %s"
                     self.cursor.execute(query, (categories, label_id))
@@ -470,16 +491,13 @@ class Space:
 
             if call.data == "del_label":
                 # Удаляю место из базы и из списка меток пользователя
-                label_id = int(self.my_labels.zrevrange(user_id, 0, -1)[int(self.users.hget(user_id, b'item'))])
+                label_id = int(self.users.hget(user_id, b'item'))
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 self.connection.commit()
-                if self.my_labels.zcard(user_id) == 1:
-                    self.my_labels.delete(user_id)
-                else:
-                    self.my_labels.zrem(user_id, label_id)
-                self.users.hset(user_id, b'item', 0)
-                self.go_menu(bot, call.message, int(self.users.hget(user_id, b'parent_menu')))
+
+                self.send_item(bot, user_id, label_id,
+                               message_id=int(self.users.hget(user_id, b'message_id')))
 
             bot.answer_callback_query(call.id)
 
