@@ -261,8 +261,7 @@ class Space:
                 break
 
             item_id = row[0]
-            label_sub_list = row[3]
-            if user_id==row[9]:
+            if user_id == row[9]:
                 self.send_item(bot, user_id, item_id, is_edited=True)
                 count += 1
         message_text = f"У вас {count} затей:"
@@ -296,7 +295,7 @@ class Space:
 
                 item_id = row[0]
                 label_sub_list = row[3]
-                if len(label_sub_list.intersection(target_subcategory_list)) > 0:
+                if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
         self.users.hdel(user_id, "category")
