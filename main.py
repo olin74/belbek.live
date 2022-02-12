@@ -52,6 +52,8 @@ class Space:
         # self.my_labels = redis.from_url(redis_url, db=3)
         # self.search = redis.from_url(redis_url, db=4)
         self.deep_space = redis.from_url(redis_url, db=5)
+        for key in self.deep_space.keys():
+            self.deep_space.delete(key)
 
         # Подключемся к базе данных
         self.connection = psycopg2.connect(os.environ['POSTGRES_URL'])
@@ -275,6 +277,7 @@ class Space:
             for item_id in self.deep_space.keys():
                 print(item_id)
                 self.send_item(bot, user_id, item_id, is_ds=True)
+
         else:
             # Формируем список необходимых категорий
             target_subcategory_list = self.categories[category]
@@ -349,7 +352,7 @@ class Space:
                     # bot.send_message(DEBUG_ID, f"{item_id}")
                 else:
                     item_pos = 1 + id_pos_end
-                    item_id = message.text[id_pos:id_pos_end]
+                    item_id = message.text[id_pos+1:id_pos_end]
                     item = message.text[item_pos:]
 
                     self.deep_space.hset(item_id, b'text', item)
