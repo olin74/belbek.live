@@ -76,7 +76,7 @@ class Space:
         with open("categories.json") as json_file:
             self.categories = json.load(json_file)
 
-        self.menu_items = ['🏕 Поиск 🏕', '🧞 Мои затеи']
+        self.menu_items = ['🦅 Поиск', '⛰ Мои затеи']
         self.edit_items = ['Изменить', '📚', '❌']
         self.menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
         self.menu_keyboard.row(types.KeyboardButton(text=self.menu_items[0]),
@@ -269,7 +269,7 @@ class Space:
                               text=message_text, reply_markup=self.menu_keyboard)
 
     # Формирование списка поиска
-    def do_search(self, bot, message, my_items=False):
+    def do_search(self, bot, message):
 
         user_id = message.chat.id
         count = 0
@@ -422,7 +422,7 @@ class Space:
             if message.text == self.menu_items[0]:
                 self.go_menu(bot, message, 1)
             if message.text == self.menu_items[1]:
-                self.go_menu(bot, message, 1)
+                self.my_items(bot, message)
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
