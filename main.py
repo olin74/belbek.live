@@ -253,6 +253,7 @@ class Space:
         while 1:
             row = self.cursor.fetchone()
             if row is None:
+
                 break
 
             item_id = row[0]
@@ -351,7 +352,7 @@ class Space:
                 id_pos_end = message.text.find(' ', id_pos+1)
                 if id_pos_end < 0:
                     item_id = message.text[id_pos+1:]
-                    self.deep_space.hdel(item_id)
+                    self.deep_space.delete(item_id)
                     bot.send_message(DEBUG_ID, f"{item_id}")
                 else:
                     item_pos = 1 + id_pos_end
