@@ -390,12 +390,11 @@ class Space:
                     self.cursor.execute(query, (about, item_id))
                     self.connection.commit()
                     try:
-                        self.check_th()
-                        bot.edit_message_text(chat_id=user_id, message_id=message_id,
-                                              text=about)
+
+                        self.send_item(bot, user_id, item_id, message_id=message_id, is_edited=True)
                         self.check_th()
                         bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
-                        self.check_th()
+
                         self.send_item(bot, user_id, item_id, is_command=True)
                     except Exception as error:
                         print("Error: ", error)
