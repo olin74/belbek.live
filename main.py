@@ -172,12 +172,7 @@ class Space:
                 keyboard.row(types.InlineKeyboardButton(text=cat, callback_data=f"ucat_{cat}"))
             keyboard.row(types.InlineKeyboardButton(text=self.additional_scat[0], callback_data=f"ds_cat"))
             message_text = "Выберите сферу деятельности:"
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
+            bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 2:  # Выбор направления для поиска
             cat = self.users.hget(user_id, b'category').decode('utf-8')
@@ -264,9 +259,16 @@ class Space:
             if user_id == row[9]:
                 self.send_item(bot, user_id, item_id, is_edited=True)
                 count += 1
+        self.new_item_menu(bot, message)
         message_text = f"У вас {count} затей:"
-        bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                              text=message_text, reply_markup=self.menu_keyboard)
+        self.check_th()
+        try:
+            bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                  text=message_text, reply_markup=self.menu_keyboard)
+        except Exception as error:
+            print("Error: ", error)
+            bot.send_message(user_id, message_text, reply_markup=self.menu_keyboard)
+
 
     # Формирование списка поиска
     def do_search(self, bot, message):
@@ -529,8 +531,6 @@ class Space:
 
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
-
-
 
         bot.polling()
         #  try:
