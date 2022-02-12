@@ -240,13 +240,41 @@ class Space:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
         elif menu_id == 5:  # Редактирование итема
-            pass
+            message_text = f"Пришлите описание вашей затей (лимит {ABOUT_LIMIT} символов)"
+            self.check_th()
+            try:
+                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                      text=message_text, reply_markup=types.ReplyKeyboardRemove())
+            except Exception as error:
+                print("Error: ", error)
+                bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+
+    def my_items(self, bot, message):
+        user_id = message.chat.id
+        count = 0
+        # Перебираем все метки
+        query = "SELECT * from labels"
+        self.cursor.execute(query)
+        while 1:
+            row = self.cursor.fetchone()
+            if row is None:
+                break
+
+            item_id = row[0]
+            label_sub_list = row[3]
+            if user_id==row[9]:
+                self.send_item(bot, user_id, item_id, is_edited=True)
+                count += 1
+        message_text = f"У вас {count} затей:"
+        bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                              text=message_text, reply_markup=self.menu_keyboard)
 
     # Формирование списка поиска
-    def do_search(self, bot, message):
+    def do_search(self, bot, message, my_items=False):
 
         user_id = message.chat.id
         count = 0
+
         # Deep space
         category = self.users.hget(user_id, "category").decode("utf-8")
         if category == self.additional_scat[0]:
@@ -254,7 +282,7 @@ class Space:
                 self.send_item(bot, user_id, item_id, is_ds=True)
         else:
             # Формируем список необходимых категорий
-            target_subcategory_list = self.categories(category)
+            target_subcategory_list = self.categories[category]
             if self.users.hexists(user_id, "subcategory"):
                 target_subcategory_list = [self.categories[self.users.hexists(user_id, "subcategory")]]
 
@@ -395,7 +423,7 @@ class Space:
             if message.text == self.menu_items[0]:
                 self.go_menu(bot, message, 1)
             if message.text == self.menu_items[1]:
-                pass
+                self.go_menu(bot, message, 1)
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
