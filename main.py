@@ -52,8 +52,6 @@ class Space:
         # self.my_labels = redis.from_url(redis_url, db=3)
         # self.search = redis.from_url(redis_url, db=4)
         self.deep_space = redis.from_url(redis_url, db=5)
-        for key in self.deep_space.keys():
-            self.deep_space.delete(key)
 
         # Подключемся к базе данных
         self.connection = psycopg2.connect(os.environ['POSTGRES_URL'])
@@ -269,17 +267,18 @@ class Space:
 
         user_id = message.chat.id
         count = 0
-
+        keyboard = types.InlineKeyboardMarkup()
         # Deep space
         category = self.users.hget(user_id, "category").decode("utf-8")
         if category == self.additional_scat[0]:
 
             for item_id in self.deep_space.keys():
-                print(item_id)
+
                 self.send_item(bot, user_id, item_id, is_ds=True)
 
         else:
             # Формируем список необходимых категорий
+
             target_subcategory_list = self.categories[category]
             if self.users.hexists(user_id, "subcategory"):
                 target_subcategory_list = [self.categories[self.users.hexists(user_id, "subcategory")]]
@@ -301,8 +300,11 @@ class Space:
         self.users.hdel(user_id, "subcategory")
         self.check_th()
         message_text = f"Найдено {count} затей:"
-        bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                              text=message_text, reply_markup=self.menu_keyboard)
+        try:
+            bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                  text=message_text, reply_markup=keyboard)
+        except Exception as error:
+            print("Error: ", error)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
