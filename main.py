@@ -86,6 +86,8 @@ class Space:
         self.limit_per_second = 5
         self.limit_counter = 0
         self.last_send_time = int(time.time())
+        self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
+                              f"Такси: @BelbekTaxiBot"
 
     def check_th(self):
         while 1:
@@ -309,6 +311,9 @@ class Space:
                                   text=message_text, reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
+        after_message = self.hellow_message
+        self.check_th()
+        bot.send_message(user_id, after_message, reply_markup=self.menu_keyboard)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
@@ -321,9 +326,10 @@ class Space:
             welcome_text = f"Здравствуйте Жители и Гости Бельбекской Долины!" \
                            f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
                            f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
-                           f" деятельности.\nКанал поддержки: https://t.me/belbekspace\n" \
+                           f" деятельности.\n" \
                            f"Для публикации собственных товаров/услуг зайдите в меню 'Мои затеи'" \
                            f" и нажмите на кнопку '➕ Новая затея' "
+            welcome_text = welcome_text + self.hellow_message
 
             self.users.hset(user_id, b'item', -1)
             self.users.hset(user_id, b'edit', 0)
