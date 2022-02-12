@@ -161,7 +161,7 @@ class Space:
         keyboard = types.InlineKeyboardMarkup()
 
         if menu_id == 0:  # Создание итема
-            message_text = f"Пришлите описание вашей затей (лимит {ABOUT_LIMIT} символов)"
+            message_text = f"Пришлите описание затей (лимит {ABOUT_LIMIT} символов), укажите контакты"
             self.check_th()
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -237,7 +237,7 @@ class Space:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
         elif menu_id == 5:  # Редактирование итема
-            message_text = f"Пришлите описание вашей затей (лимит {ABOUT_LIMIT} символов)"
+            message_text = f"Пришлите описание затей (лимит {ABOUT_LIMIT} символов), укажите контакты"
             self.check_th()
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
