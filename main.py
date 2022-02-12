@@ -378,6 +378,9 @@ class Space:
             cur_time = int(time.time())
 
             self.users.hset(user_id, b'last_login', cur_time)
+            if not self.users.hexists(user_id, b'edit'):
+                bot.send_message(user_id, "Бот обновился, нажмите /start")
+                return
 
             if int(self.users.hget(user_id, b'edit')) == 1:
                 self.users.hset(user_id, b'edit', 0)
@@ -431,7 +434,9 @@ class Space:
             self.users.hset(user_id, b'last_login', cur_time)
             # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
-
+            if not self.users.hexists(user_id, b'edit'):
+                bot.send_message(user_id, "Бот обновился, нажмите /start")
+                return
             # Показываем итем на месте меню
             if call.data[:4] == "item":
                 self.send_item(bot, user_id, int(call.data.split('_')[1]), is_edited=True,
@@ -525,7 +530,7 @@ class Space:
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
 
-            bot.answer_callback_query(call.id)
+
 
         bot.polling()
         #  try:
