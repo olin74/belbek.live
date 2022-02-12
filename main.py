@@ -423,7 +423,10 @@ class Space:
                         print("Error: ", error)
                     self.go_menu(bot, message, 3)
                     self.check_th()
-                    bot.send_message(user_id, "Затея опубликована", reply_markup=self.menu_keyboard)
+                    sub_message_text = "Затея опубликована, выберите одну или несколько направлений" \
+                                       " деятельности, это необходимо для поиска"
+                    bot.send_message(user_id, sub_message_text,
+                                     reply_markup=self.menu_keyboard)
             if message.text == self.menu_items[0]:
                 self.go_menu(bot, message, 1)
             if message.text == self.menu_items[1]:
