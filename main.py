@@ -280,6 +280,7 @@ class Space:
         # Deep space
         category = self.users.hget(user_id, "category").decode("utf-8")
         if category == self.additional_scat[0]:
+            print(self.deep_space.getall())
             for item_id in self.deep_space.keys():
                 self.send_item(bot, user_id, item_id, is_ds=True)
         else:
@@ -353,7 +354,7 @@ class Space:
                 if id_pos_end < 0:
                     item_id = message.text[id_pos+1:]
                     self.deep_space.delete(item_id)
-                    bot.send_message(DEBUG_ID, f"{item_id}")
+                    # bot.send_message(DEBUG_ID, f"{item_id}")
                 else:
                     item_pos = 1 + id_pos_end
                     item_id = message.text[id_pos:id_pos_end]
