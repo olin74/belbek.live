@@ -396,7 +396,7 @@ class Space:
                         self.check_th()
                         bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
                         self.check_th()
-                        self.send_item(bot, user_id, about, is_command=True)
+                        self.send_item(bot, user_id, item_id, about, is_command=True)
                     except Exception as error:
                         print("Error: ", error)
 
