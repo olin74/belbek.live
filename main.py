@@ -532,7 +532,7 @@ class Space:
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 self.connection.commit()
-
+                self.send_item(bot, user_id, label_id, is_command=True)
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
 
