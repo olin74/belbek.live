@@ -400,7 +400,8 @@ class Space:
                     self.connection.commit()
                     try:
 
-                        self.send_item(bot, user_id, item_id, message_id= int(self.users.hget(user_id, b'message_id')), is_edited=True)
+                        self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                       is_edited=True)
                         self.check_th()
                         bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
 
@@ -420,7 +421,8 @@ class Space:
                     self.users.hset(user_id, b'item', int(row[0]))
                     try:
                         self.check_th()
-                        self.send_item(bot, user_id, row[0], is_edited=True, message_id=message_id)
+                        self.send_item(bot, user_id, row[0], is_edited=True,
+                                       message_id=int(self.users.hget(user_id, b'message_id')))
                         self.check_th()
                         self.send_item(bot, user_id, row[0], is_command=True)
 
@@ -428,10 +430,10 @@ class Space:
                         print("Error: ", error)
                     self.go_menu(bot, message, 3)
                     self.check_th()
-                    sub_message_text = "Затея опубликована, выберите одну или несколько направлений" \
-                                       " деятельности, это необходимо для поиска"
-                    bot.send_message(user_id, sub_message_text,
-                                     reply_markup=self.menu_keyboard)
+                    # sub_message_text = "Затея опубликована, выберите одну или несколько направлений" \
+                    #                   " деятельности, это необходимо для поиска"
+                    # bot.send_message(user_id, sub_message_text,
+                    #                 reply_markup=self.menu_keyboard)
             if message.text == self.menu_items[0]:
                 self.go_menu(bot, message, 1)
             if message.text == self.menu_items[1]:
