@@ -116,13 +116,9 @@ class Space:
                 message_text = row[1]
                 if is_command:
                     message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
-                    if row[12] is not None and len(row[12]) > 0:
 
-                        message_text = message_text + f"\nhttps://t.me/{row[12]}"
                 else:
                     message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
-                    if row[12] is not None and len(row[12]) > 0:
-                        message_text = message_text + f"\nhttps://t.me/{row[12]}"
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
@@ -160,8 +156,12 @@ class Space:
 
         keyboard = types.InlineKeyboardMarkup()
 
-        if menu_id == 0:  # Создание итема
+        if menu_id == 0:  # Редактирование и создание итема
+
             message_text = f"Пришлите описание затей (лимит {ABOUT_LIMIT} символов), укажите контакты"
+            if message.chat.username is not None:
+                message_text = message_text + f" (например, ссылку на свой телеграмм:" \
+                                              f" https://t.me/{message.chat.username})"
             self.check_th()
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -169,6 +169,7 @@ class Space:
             except Exception as error:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+
         elif menu_id == 1:  # Выбор сферы для поиска
             for cat in self.categories.keys():
                 keyboard.row(types.InlineKeyboardButton(text=cat, callback_data=f"ucat_{cat}"))
@@ -236,15 +237,6 @@ class Space:
             except Exception as error:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
-        elif menu_id == 5:  # Редактирование итема
-            message_text = f"Пришлите описание затей (лимит {ABOUT_LIMIT} символов), укажите контакты"
-            self.check_th()
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=types.ReplyKeyboardRemove())
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
 
     def my_items(self, bot, message):
         user_id = message.chat.id
@@ -463,10 +455,7 @@ class Space:
                 item = int(call.data.split('_')[1])
                 self.users.hset(user_id, b'item', item)
                 self.users.hset(user_id, b'edit', 1)
-                if item == 0:
-                    self.go_menu(bot, call.message, 0)
-                else:
-                    self.go_menu(bot, call.message, 5)
+                self.go_menu(bot, call.message, 0)
 
             # Редактируем категорию
             if call.data[:3] == "cat":
