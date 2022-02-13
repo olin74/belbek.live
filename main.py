@@ -263,7 +263,8 @@ class Space:
         count = 0
         keyboard = types.InlineKeyboardMarkup()
         # Deep space
-
+        if not self.users.hexists(user_id, "category"):
+            return
         category = self.users.hget(user_id, "category").decode("utf-8")
         message_text = f"{category}"
         if category == self.additional_scat[0]:
