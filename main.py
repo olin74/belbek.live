@@ -118,7 +118,7 @@ class Space:
                     message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
 
                 else:
-                    message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}"  #\n👀 {row[8]}"
+                    message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}"  # \n👀 {row[8]}"
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
@@ -164,6 +164,7 @@ class Space:
                                               f" https://t.me/{message.chat.username})"
             message_text = message_text + f". Для отмены наберите /cancel"
             self.check_th()
+
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                       text=message_text, reply_markup=types.ReplyKeyboardRemove())
@@ -457,6 +458,8 @@ class Space:
                 item = int(call.data.split('_')[1])
                 self.users.hset(user_id, b'item', item)
                 self.users.hset(user_id, b'edit', 1)
+                if item == 0:
+                    self.users.hdel(user_id, b'message_id')
                 self.go_menu(bot, call.message, 0)
 
             # Редактируем категорию
