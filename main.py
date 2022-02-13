@@ -217,7 +217,7 @@ class Space:
                 for cat in self.categories.keys():
                     keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
-                                 callback_data=f"item_{item_id}"))
+                                 callback_data=f"done_{item_id}"))
             keyboard.row(*keyboard_line)
 
             try:
@@ -430,10 +430,7 @@ class Space:
                         print("Error: ", error)
                     self.go_menu(bot, message, 3)
                     self.check_th()
-                    # sub_message_text = "Затея опубликована, выберите одну или несколько направлений" \
-                    #                   " деятельности, это необходимо для поиска"
-                    # bot.send_message(user_id, sub_message_text,
-                    #                 reply_markup=self.menu_keyboard)
+
             if message.text == self.menu_items[0]:
                 self.go_menu(bot, message, 1)
             if message.text == self.menu_items[1]:
@@ -463,6 +460,15 @@ class Space:
                 if item == 0:
                     self.users.hdel(user_id, b'message_id')
                 self.go_menu(bot, call.message, 0)
+
+            # Редактирование итема
+            if call.data[:4] == "done":
+                item = int(call.data.split('_')[1])
+                self.send_item(bot, user_id, item, is_edited=True,
+                               message_id=int(self.users.hget(user_id, b'message_id')))
+                self.check_th()
+                bot.send_message(user_id, "Затея опубликована", reply_markup=self.menu_keyboard)
+                self.new_item_menu(bot, call.message)
 
             # Редактируем категорию
             if call.data[:3] == "cat":
