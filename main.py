@@ -118,7 +118,7 @@ class Space:
                     message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
 
                 else:
-                    message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}\n👀 {row[8]}"
+                    message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}"  #\n👀 {row[8]}"
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
@@ -158,7 +158,7 @@ class Space:
 
         if menu_id == 0:  # Редактирование и создание итема
 
-            message_text = f"Пришлите описание затей (лимит {ABOUT_LIMIT} символов), укажите контакты"
+            message_text = f"Пришлите описание затеи (лимит {ABOUT_LIMIT} символов), укажите контакты"
             if message.chat.username is not None:
                 message_text = message_text + f" (например, ссылку на свой телеграмм:" \
                                               f" https://t.me/{message.chat.username})"
