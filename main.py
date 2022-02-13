@@ -162,6 +162,7 @@ class Space:
             if message.chat.username is not None:
                 message_text = message_text + f" (например, ссылку на свой телеграмм:" \
                                               f" https://t.me/{message.chat.username})"
+            message_text = message_text + f". Для отмены наберите /cancel"
             self.check_th()
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
