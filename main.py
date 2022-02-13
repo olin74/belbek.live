@@ -391,7 +391,7 @@ class Space:
             if int(self.users.hget(user_id, b'edit')) == 1:
                 self.users.hset(user_id, b'edit', 0)
                 item_id = int(self.users.hget(user_id, b'item'))
-                message_id = int(self.users.hget(user_id, b'message_id'))
+
                 about = message.text[:ABOUT_LIMIT]
                 # Редактируем итем
                 if item_id > 0:
@@ -400,7 +400,7 @@ class Space:
                     self.connection.commit()
                     try:
 
-                        self.send_item(bot, user_id, item_id, message_id=message_id, is_edited=True)
+                        self.send_item(bot, user_id, item_id, message_id= int(self.users.hget(user_id, b'message_id')), is_edited=True)
                         self.check_th()
                         bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
 
