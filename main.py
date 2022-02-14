@@ -76,7 +76,7 @@ class Space:
         self.categories = {}
         with open("categories.json") as json_file:
             cat_dict = json.load(json_file)
-            for cat, scat in cat_dict:
+            for cat, scat in cat_dict.items():
                 self.categories[cat] = dict.fromkeys(scat, 0)
 
         self.menu_items = ['🦅 Поиск', '⛰ Мои затеи']
