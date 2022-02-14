@@ -306,7 +306,7 @@ class Space:
                 for label_sub in label_sub_list:
                     for cat, scat in self.categories.items():
                         if label_sub in scat.keys():
-                            scat[label_sub] += 1
+                            self.categories[cat][label_sub] += 1
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
