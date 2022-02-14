@@ -293,6 +293,9 @@ class Space:
             # Перебираем все метки
             query = "SELECT * from labels"
             self.cursor.execute(query)
+            for cat, scat in self.categories.items():
+                for uscat in scat.keys():
+                    scat[uscat] = 0
             while 1:
                 row = self.cursor.fetchone()
                 if row is None:
@@ -300,9 +303,6 @@ class Space:
 
                 item_id = row[0]
                 label_sub_list = row[3]
-                for cat, scat in self.categories.items():
-                    for uscat in scat.keys():
-                        scat[uscat] = 0
                 for label_sub in label_sub_list:
                     for cat, scat in self.categories.items():
                         for uscat in scat.keys():
