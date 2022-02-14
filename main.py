@@ -178,7 +178,7 @@ class Space:
         elif menu_id == 1:  # Выбор сферы для поиска
             for cat in self.categories.keys():
                 count = 0
-                for scat, scol in cat.items():
+                for scat, scol in self.categories[cat].items():
                     count += scol
                 keyboard.row(types.InlineKeyboardButton(text=f"{cat} ({count})", callback_data=f"ucat_{cat}"))
             add_row_text = f"{self.additional_scat[0]} ({len(self.deep_space.keys())})"
