@@ -398,6 +398,7 @@ class Space:
                     query = "UPDATE labels SET about = %s WHERE id = %s"
                     self.cursor.execute(query, (about, item_id))
                     self.connection.commit()
+                    self.send_item(bot, user_id, item_id, is_command=True)
                     try:
 
                         self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -405,7 +406,6 @@ class Space:
                         self.check_th()
                         bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
 
-                        self.send_item(bot, user_id, item_id, is_command=True)
                     except Exception as error:
                         print("Error: ", error)
 
@@ -419,15 +419,11 @@ class Space:
                     self.cursor.execute(query)
                     row = self.cursor.fetchone()
                     self.users.hset(user_id, b'item', int(row[0]))
-                    try:
-                        self.check_th()
-                        self.send_item(bot, user_id, row[0], is_edited=True,
-                                       message_id=int(self.users.hget(user_id, b'message_id')))
-                        self.check_th()
-                        self.send_item(bot, user_id, row[0], is_command=True)
+                    self.send_item(bot, user_id, row[0], is_command=True)
 
-                    except Exception as error:
-                        print("Error: ", error)
+                    self.send_item(bot, user_id, row[0], is_edited=True,
+                                   message_id=int(self.users.hget(user_id, b'message_id')))
+
                     self.go_menu(bot, message, 3)
                     self.check_th()
 
