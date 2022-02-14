@@ -73,8 +73,11 @@ class Space:
         '''
 
         # Подгрузка категорий
+        self.categories = {}
         with open("categories.json") as json_file:
-            self.categories = json.load(json_file)
+            cat_dict = json.load(json_file)
+            for cat, scat in cat_dict:
+                self.categories[cat] = dict.fromkeys(scat, 0)
 
         self.menu_items = ['🦅 Поиск', '⛰ Мои затеи']
         self.edit_items = ['Изменить', '📚', '❌']
@@ -162,7 +165,7 @@ class Space:
             if message.chat.username is not None:
                 message_text = message_text + f" (например, ссылку на свой телеграмм:" \
                                               f" https://t.me/{message.chat.username})"
-            message_text = message_text + f". Для отмены наберите /cancel"
+            message_text = message_text + f". Для отмены введите /cancel"
             self.check_th()
 
             try:
@@ -174,15 +177,19 @@ class Space:
 
         elif menu_id == 1:  # Выбор сферы для поиска
             for cat in self.categories.keys():
-                keyboard.row(types.InlineKeyboardButton(text=cat, callback_data=f"ucat_{cat}"))
-            keyboard.row(types.InlineKeyboardButton(text=self.additional_scat[0], callback_data=f"ds_cat"))
+                count = 0
+                for scat, scol in cat.items():
+                    count += scol
+                keyboard.row(types.InlineKeyboardButton(text=f"{cat} ({count})", callback_data=f"ucat_{cat}"))
+            add_row_text = f"{self.additional_scat[0]} ({len(self.deep_space.keys())})"
+            keyboard.row(types.InlineKeyboardButton(text=add_row_text, callback_data=f"ds_cat"))
             message_text = "Выберите сферу деятельности:"
             bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 2:  # Выбор направления для поиска
             cat = self.users.hget(user_id, b'category').decode('utf-8')
-            for sub in self.categories[cat]:
-                keyboard.row(types.InlineKeyboardButton(text=sub, callback_data=f"usub_{sub}"))
+            for sub, scol in self.categories[cat].items():
+                keyboard.row(types.InlineKeyboardButton(text=f"{sub} ({scol})", callback_data=f"usub_{sub}"))
             keyboard.row(types.InlineKeyboardButton(text="📚 Все направления 📚", callback_data=f"dsub"))
             message_text = "Выберите направление:"
             try:
@@ -203,7 +210,7 @@ class Space:
             keyboard_line = []
             message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
             if self.users.hexists(user_id, b'cat_sel'):
-                sub_list = self.categories.get(self.users.hget(user_id, b'cat_sel').decode('utf-8'))
+                sub_list = self.categories.get(self.users.hget(user_id, b'cat_sel').decode('utf-8')).keys()
                 for sub in sub_list:
                     pre = ""
                     call_st = f"lcat_{sub}"
@@ -278,7 +285,7 @@ class Space:
         else:
             # Формируем список необходимых категорий
 
-            target_subcategory_list = self.categories[category]
+            target_subcategory_list = self.categories[category].keys()
             if self.users.hexists(user_id, "subcategory"):
                 sub_c = self.users.hget(user_id, "subcategory").decode('utf-8')
                 target_subcategory_list = [sub_c]
@@ -293,6 +300,13 @@ class Space:
 
                 item_id = row[0]
                 label_sub_list = row[3]
+                for cat, scat in self.categories.items():
+                    for uscat in scat.keys():
+                        scat[uscat] = 0
+                for label_sub in label_sub_list:
+                    for cat, scat in self.categories.items():
+                        if label_sub in scat.keys():
+                            scat[label_sub] += 1
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
