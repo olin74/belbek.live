@@ -421,11 +421,9 @@ class Space:
                     self.users.hset(user_id, b'item', int(row[0]))
                     self.send_item(bot, user_id, row[0], is_command=True)
 
-                    self.send_item(bot, user_id, row[0], is_edited=True,
-                                   message_id=int(self.users.hget(user_id, b'message_id')))
-
+                    # self.send_item(bot, user_id, row[0], is_edited=True,
+                    #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
-                    self.check_th()
 
             if message.text == self.menu_items[0]:
                 self.go_menu(bot, message, 1)
