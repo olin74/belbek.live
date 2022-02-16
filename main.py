@@ -102,9 +102,8 @@ class Space:
     def send_item(self, bot, user_id, item_id, is_command=False, is_edited=False, is_ds=False, message_id=None):
         item_menu = []
         if is_ds:
-            message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n" \
-                           f"🆔 {item_id.decode('utf-8')}\n" \
-                           f"{self.additional_scat[0]}"
+            message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n" \                          
+                           f"{self.additional_scat[0]}"  # f"🆔 {item_id.decode('utf-8')}\n" \
         else:
             query = "SELECT * from labels WHERE id=%s"
             cursor = self.connection.cursor()
@@ -117,7 +116,7 @@ class Space:
                     message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
 
                 else:
-                    message_text = f"📝 {message_text}\n🆔 {row[0]}@{DS_ID}\n📚 {','.join(row[3])}"  # \n👀 {row[8]}"
+                    message_text = f"📝 {message_text}\n📚 {','.join(row[3])}"  # \n👀 {row[8]} 🆔 {row[0]}@{DS_ID}\n"
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
