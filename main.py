@@ -462,6 +462,8 @@ class Space:
                     self.send_item(bot, user_id, item_id, is_command=True)
                     self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                    is_edited=True)
+                    self.check_th()
+                    bot.send_message(user_id, "Описание изменено")
 
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
@@ -474,7 +476,7 @@ class Space:
                     row = self.cursor.fetchone()
                     self.users.hset(user_id, b'item', int(row[0]))
                     self.send_item(bot, user_id, row[0], is_command=True)
-
+                    bot.send_message(user_id, "Затея опубликована")
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
