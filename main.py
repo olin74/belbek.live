@@ -86,7 +86,7 @@ class Space:
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
-                              f"Отправьте слово или фразу для поиска"
+                              f"Для поиска отправьте слово или фразу"
 
     def check_th(self):
         while 1:
@@ -316,9 +316,9 @@ class Space:
 
     def do_search_text(self, bot, message, text):
 
-        def is_contain(phrase: [], text: str):
-            for w in phrase:
-                if text.find(w) < 0:
+        def is_contain(phrase: [], about_text: str):
+            for word in phrase:
+                if about_text.lower().find(word.lower()) < 0:
                     return False
             return True
 
