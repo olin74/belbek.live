@@ -102,8 +102,8 @@ class Space:
     def send_item(self, bot, user_id, item_id, is_command=False, is_edited=False, is_ds=False, message_id=None):
         item_menu = []
         if is_ds:
-            message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n" \                          
-                           f"{self.additional_scat[0]}"  # f"🆔 {item_id.decode('utf-8')}\n" \
+            message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n{self.additional_scat[0]}"
+            # f"🆔 {item_id.decode('utf-8')}\n" \
         else:
             query = "SELECT * from labels WHERE id=%s"
             cursor = self.connection.cursor()
