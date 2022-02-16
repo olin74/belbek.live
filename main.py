@@ -237,10 +237,10 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 4:  # Подтверждение удаления
-            message_text = "Вы действительно хотите ❌ убрать ❌ это место из нашего космоса?"
+            message_text = "Вы действительно хотите ❌ убрать ❌ эту затею из нашего космоса?"
+            keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"cdel_label"))
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
                                                     callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
-            keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"cdel_label"))
 
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -355,7 +355,7 @@ class Space:
                     count += 1
 
         self.check_th()
-        after_message = f"Найдено затей : {count}.\n"+self.hellow_message
+        after_message = f"Найдено затей : {count}\n"+self.hellow_message
         self.check_th()
         bot.send_message(user_id, after_message)
 
@@ -370,7 +370,7 @@ class Space:
         def start_message(message):
             user_id = message.chat.id
 
-            welcome_text = f"Для управления ботом используйте меню в нижней левой части экрана"
+            welcome_text = f"Для управления ботом используйте меню в нижней левой части экрана\n"
 
             welcome_text = welcome_text + self.hellow_message
 
@@ -587,7 +587,7 @@ class Space:
                 self.go_menu(bot, call.message, 3)
 
             if call.data == "cdel_label":
-                # Удаляю место из базы и из списка меток пользователя
+                # Удаляю затею из базы и из списка меток пользователя
                 label_id = int(self.users.hget(user_id, b'item'))
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
