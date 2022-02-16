@@ -349,12 +349,15 @@ class Space:
                     count += 1
 
         self.check_th()
-        after_message = f"Найдено {count} затей.\n"+self.hellow_message
+        after_message = f"Найдено затей : {count}.\n"+self.hellow_message
         self.check_th()
         bot.send_message(user_id, after_message)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
+
+        for key in self.deep_space.keys():
+            self.deep_space.delete(key)
         bot.send_message(BOTCHAT_ID, "/get_all_items")
 
         # Стартовое сообщение
@@ -457,15 +460,8 @@ class Space:
                     self.cursor.execute(query, (about, item_id))
                     self.connection.commit()
                     self.send_item(bot, user_id, item_id, is_command=True)
-                    try:
-
-                        self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                       is_edited=True)
-                        self.check_th()
-                        bot.send_message(user_id, "Описание изменено")
-
-                    except Exception as error:
-                        print("Error: ", error)
+                    self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                   is_edited=True)
 
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
@@ -513,8 +509,6 @@ class Space:
                 item = int(call.data.split('_')[1])
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
-                self.check_th()
-                bot.send_message(user_id, "Затея опубликована")
 
             # Редактируем категорию
             if call.data[:3] == "cat":
