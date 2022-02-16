@@ -79,18 +79,14 @@ class Space:
             for cat, scat in cat_dict.items():
                 self.categories[cat] = dict.fromkeys(scat, 0)
 
-        self.menu_items = ['🦅 Поиск', '⛰ Мои затеи']
         self.edit_items = ['Изменить', '📚', '❌']
-        self.menu_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-        self.menu_keyboard.row(types.KeyboardButton(text=self.menu_items[0]),
-                               types.KeyboardButton(text=self.menu_items[1]))
-
         self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚']
         self.limit_per_second = 5
         self.limit_counter = 0
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
-                              f"Такси: @BelbekTaxiBot"
+                              f"Такси и доставка: @BelbekTaxiBot\n" \
+                              f"Отправьте слово или фразу для поиска"
 
     def check_th(self):
         while 1:
@@ -121,7 +117,7 @@ class Space:
                     message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
 
                 else:
-                    message_text = f"📝 {message_text}\n🆔 {row[0]}\n📚 {','.join(row[3])}"  # \n👀 {row[8]}"
+                    message_text = f"📝 {message_text}\n🆔 {row[0]}@{DS_ID}\n📚 {','.join(row[3])}"  # \n👀 {row[8]}"
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
@@ -144,14 +140,6 @@ class Space:
                 bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text, reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
-
-    def new_item_menu(self, bot, message):
-        message_text = "Вы можете добавить новую затею нажав на кнопку"
-        keyboard = types.InlineKeyboardMarkup()
-        keyboard.row(types.InlineKeyboardButton(text='➕ Новая затея',
-                                                callback_data=f"edit_0"))
-        self.check_th()
-        bot.send_message(message.chat.id, message_text, reply_markup=keyboard)
 
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
@@ -263,9 +251,8 @@ class Space:
             if user_id == row[9]:
                 self.send_item(bot, user_id, item_id, is_edited=True)
                 count += 1
-        self.new_item_menu(bot, message)
 
-    # Формирование списка поиска
+    # Формирование списка поиска из категорий
     def do_search(self, bot, message):
 
         user_id = message.chat.id
@@ -323,7 +310,48 @@ class Space:
             print("Error: ", error)
         after_message = self.hellow_message
         self.check_th()
-        bot.send_message(user_id, after_message, reply_markup=self.menu_keyboard)
+        bot.send_message(user_id, after_message)
+
+        # Формирование списка поиска по словам
+
+    def do_search_text(self, bot, message, text):
+
+        def is_contain(phrase: [], text: str):
+            for w in phrase:
+                if text.find(w) < 0:
+                    return False
+            return True
+
+        user_id = message.chat.id
+        count = 0
+
+        pre_words = text.split(' ')
+        words = []
+        for w in pre_words:
+            if len(w) > 2:
+                words.append(w)
+
+        if len(words) > 0:
+            query = "SELECT * from labels"
+            self.cursor.execute(query)
+            while 1:
+                row = self.cursor.fetchone()
+                if row is None:
+                    break
+                item_id = row[0]
+                about = row[1]
+                if is_contain(words, about):
+                    self.send_item(bot, user_id, item_id)
+                    count += 1
+            for item_id in self.deep_space.keys():
+                if is_contain(words, self.deep_space.hget(item_id, b'text').decode('utf-8')):
+                    self.send_item(bot, user_id, item_id, is_ds=True)
+                    count += 1
+
+        self.check_th()
+        after_message = f"Найдено {count} затей.\n"+self.hellow_message
+        self.check_th()
+        bot.send_message(user_id, after_message)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
@@ -333,23 +361,19 @@ class Space:
         def start_message(message):
             user_id = message.chat.id
 
-            welcome_text = f"Здравствуйте Жители и Гости Бельбекской Долины!" \
-                           f" Этот бот - агрегатор товаров и услуг этого замечательного уголка Крыма. Здесь Вы" \
-                           f" можете найти всё для жизни и отдыха, а также разместить информацию о своей" \
-                           f" деятельности.\n" \
-                           f"Для публикации собственных товаров/услуг зайдите в меню 'Мои затеи'" \
-                           f" и нажмите на кнопку '➕ Новая затея' "
+            welcome_text = f"Для управления ботом используйте меню в нижней левой части экрана"
+
             welcome_text = welcome_text + self.hellow_message
 
             self.users.hset(user_id, b'item', -1)
             self.users.hset(user_id, b'edit', 0)
             self.check_th()
-            bot.send_message(user_id, welcome_text, reply_markup=self.menu_keyboard)
+            bot.send_message(user_id, welcome_text)
 
         @bot.message_handler(commands=['get_all_items'])
         def get_all_message(message):
             user_id = message.chat.id
-            print(f"{user_id} : {message.text}")
+
             if user_id == BOTCHAT_ID:
                 query = "SELECT id from labels"
                 self.cursor.execute(query)
@@ -362,7 +386,6 @@ class Space:
         @bot.message_handler(commands=['set_item'])
         def set_item_message(message):
             user_id = message.chat.id
-            print(f"{user_id} : {message.text}")
             if user_id == BOTCHAT_ID:
                 id_pos = message.text.find(' ', 0)
                 if id_pos < 0:
@@ -380,17 +403,30 @@ class Space:
                     self.deep_space.hset(item_id, b'text', item)
                     # bot.send_message(DEBUG_ID,f"{item_id} {item}")
 
+        @bot.message_handler(commands=['new_item'])
+        def new_item(message):
+            user_id = message.chat.id
+            self.users.hset(user_id, b'item', 0)
+            self.users.hset(user_id, b'edit', 1)
+            self.users.hdel(user_id, b'message_id')
+            self.go_menu(bot, message, 0)
+
+        @bot.message_handler(commands=['my_items'])
+        def my_items(message):
+            self.my_items(bot, message)
+
+        @bot.message_handler(commands=['search'])
+        def browse(message):
+            self.go_menu(bot, message, 1)
+
         # Отмена ввода
         @bot.message_handler(commands=['cancel'])
         def cancel_message(message):
             user_id = message.chat.id
-            if int(self.users.hget(user_id, b'edit')) == 1:
+            if int(self.users.hget(user_id, b'edit')) > 0:
                 self.users.hset(user_id, b'edit', 0)
                 self.check_th()
-                bot.send_message(user_id, "Ввод отменён", reply_markup=self.menu_keyboard)
-                item_id = int(self.users.hget(user_id, b'item'))
-                if item_id == 0:
-                    self.new_item_menu(bot, message)
+                bot.send_message(user_id, "Ввод отменён")
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
@@ -403,7 +439,10 @@ class Space:
                 bot.send_message(user_id, "Бот обновился, нажмите /start")
                 return
 
-            if int(self.users.hget(user_id, b'edit')) == 1:
+            if int(self.users.hget(user_id, b'edit')) == 0:
+                self.do_search_text(bot, message, message.text)
+
+            elif int(self.users.hget(user_id, b'edit')) == 1:
                 self.users.hset(user_id, b'edit', 0)
                 item_id = int(self.users.hget(user_id, b'item'))
 
@@ -419,7 +458,7 @@ class Space:
                         self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                        is_edited=True)
                         self.check_th()
-                        bot.send_message(user_id, "Описание изменено", reply_markup=self.menu_keyboard)
+                        bot.send_message(user_id, "Описание изменено")
 
                     except Exception as error:
                         print("Error: ", error)
@@ -439,11 +478,6 @@ class Space:
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
-
-            if message.text == self.menu_items[0]:
-                self.go_menu(bot, message, 1)
-            if message.text == self.menu_items[1]:
-                self.my_items(bot, message)
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
@@ -476,8 +510,7 @@ class Space:
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
                 self.check_th()
-                bot.send_message(user_id, "Затея опубликована", reply_markup=self.menu_keyboard)
-                self.new_item_menu(bot, call.message)
+                bot.send_message(user_id, "Затея опубликована")
 
             # Редактируем категорию
             if call.data[:3] == "cat":
