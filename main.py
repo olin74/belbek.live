@@ -103,7 +103,7 @@ class Space:
         item_menu = []
         if is_ds:
             message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n" \
-                           f"🆔 {item_id}\n" \
+                           f"🆔 {item_id.decode('utf-8')}\n" \
                            f"{self.additional_scat[0]}"
         else:
             query = "SELECT * from labels WHERE id=%s"
@@ -355,6 +355,7 @@ class Space:
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
+        bot.send_message(BOTCHAT_ID, "/get_all_items")
 
         # Стартовое сообщение
         @bot.message_handler(commands=['start'])
