@@ -78,6 +78,7 @@ class Space:
             cat_dict = json.load(json_file)
             for cat, scat in cat_dict.items():
                 self.categories[cat] = dict.fromkeys(scat, 0)
+        self.renew_cats()
 
         self.edit_items = ['Изменить', '📚', '❌']
         self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚']
@@ -87,6 +88,20 @@ class Space:
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
                               f"Для поиска отправьте слово или фразу"
+
+    def renew_cats(self):
+        query = "SELECT * from labels"
+        self.cursor.execute(query)
+        while 1:
+            row = self.cursor.fetchone()
+            if row is None:
+                break
+            label_sub_list = row[3]
+            for label_sub in label_sub_list:
+                for cat, scat in self.categories.items():
+                    for uscat in scat.keys():
+                        if label_sub == uscat:
+                            self.categories[cat][uscat] += 1
 
     def check_th(self):
         while 1:
@@ -279,9 +294,6 @@ class Space:
             # Перебираем все метки
             query = "SELECT * from labels"
             self.cursor.execute(query)
-            for cat, scat in self.categories.items():
-                for uscat in scat.keys():
-                    scat[uscat] = 0
             while 1:
                 row = self.cursor.fetchone()
                 if row is None:
@@ -289,11 +301,6 @@ class Space:
 
                 item_id = row[0]
                 label_sub_list = row[3]
-                for label_sub in label_sub_list:
-                    for cat, scat in self.categories.items():
-                        for uscat in scat.keys():
-                            if label_sub == uscat:
-                                self.categories[cat][uscat] += 1
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
@@ -355,9 +362,8 @@ class Space:
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
 
-        for key in self.deep_space.keys():
-            self.deep_space.delete(key)
-        bot.send_message(BOTCHAT_ID, "/get_all_items")
+        if len(self.deep_space.keys()) == 0:
+            bot.send_message(BOTCHAT_ID, "/get_all_items")
 
         # Стартовое сообщение
         @bot.message_handler(commands=['start'])
@@ -508,6 +514,7 @@ class Space:
             # Редактирование итема
             if call.data[:4] == "done":
                 item = int(call.data.split('_')[1])
+                self.renew_cats()
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
 
