@@ -435,6 +435,9 @@ class Space:
             user_id = message.chat.id
             cur_time = int(time.time())
 
+            if user_id == BOTCHAT_ID:
+                return
+
             self.users.hset(user_id, b'last_login', cur_time)
             if not self.users.hexists(user_id, b'edit'):
                 bot.send_message(user_id, "Бот обновился, нажмите /start")
