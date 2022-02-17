@@ -14,7 +14,7 @@ import os
 # Устанавливаем константы
 BOTCHAT_ID = -1001508419451  # Айди чата для ботов
 DEBUG_ID = 665812965  # Дебаг whitejoe
-ABOUT_LIMIT = 2000  # Лимит символов в описании
+ABOUT_LIMIT = 1000  # Лимит символов в описании
 DS_ID = "belbek_space"
 
 
@@ -169,13 +169,7 @@ class Space:
                                               f" https://t.me/{message.chat.username})"
             message_text = message_text + f". Для отмены введите /cancel"
             self.check_th()
-
-            try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                      text=message_text, reply_markup=types.ReplyKeyboardRemove())
-            except Exception as error:
-                print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
 
         elif menu_id == 1:  # Выбор сферы для поиска
             for cat in self.categories.keys():
@@ -355,7 +349,7 @@ class Space:
                     count += 1
 
         self.check_th()
-        after_message = f"Найдено затей : {count}\n"+self.hellow_message
+        after_message = f"Найдено затей: {count}\n"+self.hellow_message
         self.check_th()
         bot.send_message(user_id, after_message)
 
@@ -481,7 +475,8 @@ class Space:
                     row = self.cursor.fetchone()
                     self.users.hset(user_id, b'item', int(row[0]))
                     self.send_item(bot, user_id, row[0], is_command=True)
-                    bot.send_message(user_id, "Затея опубликована")
+                    bot.send_message(user_id, "Затея опубликована. "
+                                              "Хотите помочь проекту? https://t.me/belbekspace_chat/10")
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
@@ -507,8 +502,6 @@ class Space:
                 item = int(call.data.split('_')[1])
                 self.users.hset(user_id, b'item', item)
                 self.users.hset(user_id, b'edit', 1)
-                if item == 0:
-                    self.users.hdel(user_id, b'message_id')
                 self.go_menu(bot, call.message, 0)
 
             # Редактирование итема
