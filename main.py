@@ -90,6 +90,9 @@ class Space:
                               f"Для поиска отправьте слово или фразу"
 
     def renew_cats(self):
+        for cat, ucats in self.categories.items():
+            for ucat in ucats.keys():
+                self.categories[cat][ucat] = 0
         query = "SELECT * from labels"
         self.cursor.execute(query)
         while 1:
@@ -204,7 +207,8 @@ class Space:
             selected_cats = row[0]
 
             keyboard_line = []
-            message_text = f"Следует отметить одно или несколько направлений.\nВыбрано {len(selected_cats)}\n"
+            message_text = f"Выберите одно или несколько направлений:\n" \
+                           f"Выбрано {len(selected_cats)}\n"
             if self.users.hexists(user_id, b'cat_sel'):
                 sub_list = self.categories.get(self.users.hget(user_id, b'cat_sel').decode('utf-8')).keys()
                 for sub in sub_list:
@@ -216,7 +220,8 @@ class Space:
                 keyboard_line.append(types.InlineKeyboardButton(text=f"↩️ Назад",
                                                                 callback_data=f"rcat"))
             else:
-                message_text = f"Выберите сферу дейтельности:"
+                message_text = f"Для удобства поиска Вы можете отметить одно или несколько направлений.\n" \
+                               f"Выберите сферу дейтельности:"
                 for cat in self.categories.keys():
                     keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
