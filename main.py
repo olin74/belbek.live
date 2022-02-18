@@ -9,6 +9,7 @@ import redis
 import telebot
 from telebot import types
 import time
+import datetime
 import os
 
 # Устанавливаем константы
@@ -16,6 +17,7 @@ BOTCHAT_ID = -1001508419451  # Айди чата для ботов
 DEBUG_ID = 665812965  # Дебаг whitejoe
 ABOUT_LIMIT = 1000  # Лимит символов в описании
 DS_ID = "belbek_space"
+FORMAT_TIME = "%d.%m.%y %H:%M"
 
 
 class Space:
@@ -71,6 +73,7 @@ class Space:
         10 zoom
         11 time_added
         12 username
+        13 start_time
         '''
 
         # Подгрузка категорий
@@ -81,15 +84,15 @@ class Space:
                 self.categories[cat] = dict.fromkeys(scat, 0)
         self.renew_cats()
 
-        self.edit_items = ['Изменить', '📚', '❌']
-        self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚']
+        self.edit_items = ['Изменить', '📚', '❌', '🕰']
+        self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятие 🕰"]
         self.limit_per_second = 5
         self.limit_counter = 0
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
                               f"Для поиска отправьте любое слово или фразу"
-        self.day_today = time.localtime().tm_mday
+        self.day_today = -1
 
     def save_views(self):
         for bitem_id in self.views.keys():
@@ -97,8 +100,9 @@ class Space:
             query = "SELECT views from labels WHERE id=%s"
             self.cursor.execute(query, (item_id,))
             row = self.cursor.fetchone()
-            if row is not None:
-                vs = row[0] + self.views[bitem_id]
+            svid = int(self.views[bitem_id])
+            if row is not None and svid > 0:
+                vs = row[0] + svid
                 query = "UPDATE labels SET views = %s WHERE id = %s"
                 self.cursor.execute(query, (vs, item_id))
                 self.connection.commit()
@@ -142,7 +146,13 @@ class Space:
 
         item_menu = []
         if is_ds:
-            message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n{self.additional_scat[0]}"
+            message_text = f"📝 {self.deep_space.hget(item_id, b'text').decode('utf-8')}"
+            if self.deep_space.hexists(item_id, b'start_time'):
+                start_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(item_id, b'start_time')))
+
+                message_text = message_text + f"\n🕰 {start_time.strftime(FORMAT_TIME)}"
+            else:
+                message_text = message_text + f"\n{self.additional_scat[0]}"
             # f"🆔 {item_id.decode('utf-8')}\n" \
         else:
             query = "SELECT * from labels WHERE id=%s"
@@ -151,25 +161,39 @@ class Space:
             row = cursor.fetchone()
             message_text = "Удалено"
             if row is not None:
-                message_text = row[1]
+
                 if is_command:
-                    message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
+                    message_text = f"/set_item {item_id}@{DS_ID}"
+                    if row[13] > 0:
+                        start_time = datetime.datetime.fromtimestamp(row[13])
 
+                        message_text = message_text + f" {start_time.strftime(FORMAT_TIME)}"
+                    message_text = message_text + f" {row[1]}"
                 else:
-
+                    message_text = row[1]
                     vs = int(row[8])
                     if not is_edited:
                         inc_views(item_id)
                     if self.views.exists(item_id):
                         vs += int(self.views.get(item_id))
-                    message_text = f"📝 {message_text}\n👀 {vs}\n📚 {','.join(row[3])}"
+                    message_text = f"📝 {message_text}\n👀 {vs}"
+                    if row[13] > 0:
+                        start_time = datetime.datetime.fromtimestamp(row[13])
+
+                        message_text = message_text + f"\n🕰 {start_time.strftime(FORMAT_TIME)}"
+                    else:
+                        message_text = message_text + f"\n📚 {','.join(row[3])}"
                     #  🆔 {row[0]}@{DS_ID}\n"
 
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
-                    item_menu.append(types.InlineKeyboardButton(text=self.edit_items[1],
-                                                                callback_data=f"cat_{item_id}"))
+                    if row[13] > 0:
+                        item_menu.append(types.InlineKeyboardButton(text=self.edit_items[3],
+                                                                    callback_data=f"time_{item_id}"))
+                    else:
+                        item_menu.append(types.InlineKeyboardButton(text=self.edit_items[1],
+                                                                    callback_data=f"cat_{item_id}"))
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                 callback_data=f"del_{item_id}"))
             elif is_command:
@@ -252,6 +276,8 @@ class Space:
             else:
                 message_text = f"Для удобства поиска Вы можете отметить одно или несколько направлений.\n" \
                                f"Выберите сферу дейтельности:"
+                keyboard_line.append(types.InlineKeyboardButton(text=self.additional_scat[3],
+                                                                callback_data=f"time_{item_id}"))
                 for cat in self.categories.keys():
                     keyboard.row(types.InlineKeyboardButton(text=f"{cat}", callback_data=f"scat_{cat}"))
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
@@ -277,6 +303,13 @@ class Space:
             except Exception as error:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
+        elif menu_id == 5:  # Редактирование времени итема
+            now_time = datetime.datetime.fromtimestamp(int(time.time()))
+            message_text = f"Пришлите дату и время меоприятия (в формате {FORMAT_TIME}), например:\n" \
+                           f"{now_time.strftime(FORMAT_TIME)}\nЧто бы удалить время введите /no_time\n" \
+                           f"Для отмены - /cancel"
+            self.check_th()
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
 
     def my_items(self, bot, message):
         user_id = message.chat.id
@@ -429,15 +462,27 @@ class Space:
                 if id_pos < 0:
                     return
                 id_pos_end = message.text.find(' ', id_pos+1)
+
                 if id_pos_end < 0:
                     item_id = message.text[id_pos+1:]
                     self.deep_space.delete(item_id)
                     # bot.send_message(DEBUG_ID, f"{item_id}")
                 else:
-                    item_pos = 1 + id_pos_end
-                    item_id = message.text[id_pos+1:id_pos_end]
-                    item = message.text[item_pos:]
+                    item_id = message.text[id_pos + 1:id_pos_end]
+                    start_pos = 1 + id_pos_end
+                    start_pos_end = message.text.find(' ', start_pos)
+                    start_pos_end = message.text.find(' ', start_pos_end + 1)
+                    try:
+                        start_str = message.text[start_pos:start_pos_end]
+                        start_time = int(time.mktime(time.strptime(start_str, FORMAT_TIME)))
+                        self.deep_space.hset(item_id, b'start_time', start_time)
+                        item_pos = start_pos_end + 1
+                    except ValueError:
+                        item_pos = 1 + id_pos_end
+                        if self.deep_space.exists(item_id):
+                            self.deep_space.hdel(item_id, b'start_time')
 
+                    item = message.text[item_pos:]
                     self.deep_space.hset(item_id, b'text', item)
                     # bot.send_message(DEBUG_ID,f"{item_id} {item}")
 
@@ -465,6 +510,21 @@ class Space:
                 self.users.hset(user_id, b'edit', 0)
                 self.check_th()
                 bot.send_message(user_id, "Ввод отменён")
+
+        # Удаление времени
+        @bot.message_handler(commands=['no_time'])
+        def no_time(message):
+            user_id = message.chat.id
+            item_id = int(self.users.hget(user_id, b'item'))
+            query = "UPDATE labels SET start_time = %s WHERE id = %s"
+            self.cursor.execute(query, (0, item_id))
+            self.connection.commit()
+            self.send_item(bot, user_id, item_id, is_command=True)
+            self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                           is_edited=True)
+            self.check_th()
+            bot.send_message(user_id, f"Вермя начала затеи удалено, что бы вернуть время,"
+                                      f" следует отметить затею как {self.additional_scat[3]}")
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
@@ -500,7 +560,7 @@ class Space:
                     self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                    is_edited=True)
                     self.check_th()
-                    bot.send_message(user_id, "Описание изменено")
+                    bot.send_message(user_id, "Описание затеи изменено")
 
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
@@ -518,6 +578,22 @@ class Space:
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
+            elif int(self.users.hget(user_id, b'edit')) == 2:
+                try:
+                    start_time = int(time.mktime(time.strptime(message.text, FORMAT_TIME)))
+                    self.users.hset(user_id, b'edit', 0)
+                    item_id = int(self.users.hget(user_id, b'item'))
+                    query = "UPDATE labels SET start_time = %s WHERE id = %s"
+                    self.cursor.execute(query, (start_time, item_id))
+                    self.connection.commit()
+                    self.send_item(bot, user_id, item_id, is_command=True)
+                    self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                   is_edited=True)
+                    self.check_th()
+                    bot.send_message(user_id, "Время начала затеи изменено")
+
+                except ValueError:
+                    self.go_menu(bot, message, 5)
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
@@ -626,6 +702,12 @@ class Space:
                 self.send_item(bot, user_id, label_id, is_command=True)
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
+
+            if call.data[:4] == "time":
+                item_id = int(call.data.split('_')[1])
+                self.users.hset(user_id, b'item', item_id)
+                self.users.hset(user_id, b'edit', 2)
+                self.go_menu(bot, call.message, 5)
 
         bot.polling()
         #  try:
