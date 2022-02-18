@@ -52,6 +52,7 @@ class Space:
         # self.my_labels = redis.from_url(redis_url, db=3)
         # self.search = redis.from_url(redis_url, db=4)
         self.deep_space = redis.from_url(redis_url, db=5)
+        self.views = redis.from_url(redis_url, db=6)
 
         # Подключемся к базе данных
         self.connection = psycopg2.connect(os.environ['POSTGRES_URL'])
@@ -87,7 +88,21 @@ class Space:
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
-                              f"Для поиска отправьте слово или фразу"
+                              f"Для поиска отправьте любое слово или фразу"
+        self.day_today = time.localtime().tm_mday
+
+    def save_views(self):
+        for bitem_id in self.views.keys():
+            item_id = int(bitem_id)
+            query = "SELECT views from labels WHERE id=%s"
+            self.cursor.execute(query, (item_id,))
+            row = self.cursor.fetchone()
+            if row is not None:
+                vs = row[0] + self.views[bitem_id]
+                query = "UPDATE labels SET views = %s WHERE id = %s"
+                self.cursor.execute(query, (vs, item_id))
+                self.connection.commit()
+                self.views[bitem_id] = 0
 
     def renew_cats(self):
         for cat, ucats in self.categories.items():
@@ -118,6 +133,13 @@ class Space:
             time.sleep(1)
 
     def send_item(self, bot, user_id, item_id, is_command=False, is_edited=False, is_ds=False, message_id=None):
+        def inc_views(iid):
+            ovs = 0
+            if self.views.exists(iid):
+                ovs = int(self.views.get(iid))
+            self.views.set(iid, ovs + 1)
+            return int(self.views.get(iid))
+
         item_menu = []
         if is_ds:
             message_text = f"📝 {self.deep_space.hget(item_id,b'text').decode('utf-8')}\n{self.additional_scat[0]}"
@@ -134,7 +156,15 @@ class Space:
                     message_text = f"/set_item {item_id}@{DS_ID} {message_text}"
 
                 else:
-                    message_text = f"📝 {message_text}\n📚 {','.join(row[3])}"  # \n👀 {row[8]} 🆔 {row[0]}@{DS_ID}\n"
+
+                    vs = int(row[8])
+                    if not is_edited:
+                        inc_views(item_id)
+                    if self.views.exists(item_id):
+                        vs += int(self.views.get(item_id))
+                    message_text = f"📝 {message_text}\n👀 {vs}\n📚 {','.join(row[3])}"
+                    #  🆔 {row[0]}@{DS_ID}\n"
+
                 if is_edited:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
@@ -441,7 +471,10 @@ class Space:
         def message_text(message):
             user_id = message.chat.id
             cur_time = int(time.time())
-
+            # Check new day
+            if time.localtime().tm_mday != self.day_today:
+                self.day_today = time.localtime().tm_mday
+                self.save_views()
             if user_id == BOTCHAT_ID:
                 return
 
