@@ -21,6 +21,23 @@ FORMAT_TIME = "%d.%m.%y %H:%M"
 FORMAT_DESC = "ДД.ММ.ГГ ЧЧ:ММ"
 
 
+def is_date(ts, mid_night, date_code):
+    day_sec = 24 * 60 * 60
+    wd = time.localtime(ts).tm_wday
+    if date_code == 0:
+        return ts < mid_night and (ts > mid_night - day_sec * 7)
+    if date_code == 1:
+        return ts > mid_night and (ts < mid_night + day_sec * 1)
+    if date_code == 2:
+        return (ts > mid_night + day_sec * 1) and (ts < mid_night + day_sec * 2)
+    if date_code == 3:
+        return ts > mid_night and (ts < mid_night + day_sec * (7 - wd))
+    if date_code == 4:
+        return (ts > mid_night + day_sec * (7 - wd)) and (ts < mid_night + day_sec * (14 - wd))
+    if date_code == 5:
+        return ts > mid_night + day_sec * (14 - wd)
+
+
 class Space:
     def __init__(self):
 
@@ -83,6 +100,7 @@ class Space:
             cat_dict = json.load(json_file)
             for cat, scat in cat_dict.items():
                 self.categories[cat] = dict.fromkeys(scat, 0)
+        self.events_count = {}
         self.renew_cats()
 
         self.edit_items = ['Изменить', '📚', '❌', '🕰']
@@ -119,6 +137,8 @@ class Space:
         for cat, ucats in self.categories.items():
             for ucat in ucats.keys():
                 self.categories[cat][ucat] = 0
+        for evt in self.date_code.keys():
+            self.events_count[evt] = 0
         query = "SELECT * from labels"
         self.cursor.execute(query)
         while 1:
@@ -131,6 +151,20 @@ class Space:
                     for uscat in scat.keys():
                         if label_sub == uscat:
                             self.categories[cat][uscat] += 1
+            if row[13] > 0:
+                x = time.localtime(row[13])
+
+                mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
+                for evt, code in self.date_code.items():
+                    if is_date(row[13], mnight, code):
+                        self.events_count[evt] += 1
+        for ds_id in self.deep_space.keys():
+            if self.deep_space.hexists(ds_id, b'start_time'):
+                x = time.localtime(int(self.deep_space.hget(ds_id, b'start_time')))
+                mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
+                for evt, code in self.date_code.items():
+                    if is_date(int(self.deep_space.hget(ds_id, b'start_time')), mnight, code):
+                        self.events_count[evt] += 1
 
     def check_th(self):
         while 1:
@@ -319,7 +353,8 @@ class Space:
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
         elif menu_id == 6:  # Поиск мероприятий
             for menu_item, date_code in self.date_code.items():
-                keyboard.row(types.InlineKeyboardButton(text=menu_item, callback_data=f"ctime_{date_code}"))
+                text_item = f"{menu_item} ({self.events_count[menu_item]})"
+                keyboard.row(types.InlineKeyboardButton(text=text_item, callback_data=f"ctime_{date_code}"))
             message_text = "Выберите дату начала мероприятия или просто оптравьте текстом (ДД.ММ.ГГ)"
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -455,23 +490,7 @@ class Space:
     # Поиск событий
     def do_search_date(self, bot, message, date_code):
         x = time.localtime(int(time.time()))
-        mid_night = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
-        day_sec = 60 * 60 * 24
-        wd = time.localtime().tm_wday
-
-        def is_date(ts):
-            if date_code == 0:
-                return ts < mid_night
-            if date_code == 1:
-                return ts > mid_night and (ts < mid_night + day_sec * 1)
-            if date_code == 2:
-                return (ts > mid_night + day_sec * 1) and (ts < mid_night + day_sec * 2)
-            if date_code == 3:
-                return ts > mid_night and (ts < mid_night + day_sec * (7 - wd))
-            if date_code == 4:
-                return (ts > mid_night + day_sec * (7 - wd)) and (ts < mid_night + day_sec * (14 - wd))
-            if date_code == 5:
-                return ts > mid_night + day_sec * (14 - wd)
+        mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
 
         user_id = message.chat.id
         count = 0
@@ -483,14 +502,14 @@ class Space:
                 break
             item_id = row[0]
             start_time = int(row[13])
-            if is_date(start_time):
+            if is_date(start_time, mnight, date_code):
                 self.send_item(bot, user_id, item_id)
                 count += 1
 
         for item_id in self.deep_space.keys():
             if self.deep_space.hexists(item_id, b'start_time'):
                 start_time = int(self.deep_space.hget(item_id, b'start_time'))
-                if is_date(start_time):
+                if is_date(start_time, mnight, date_code):
                     self.send_item(bot, user_id, item_id, is_ds=True)
                     count += 1
         keyboard = types.InlineKeyboardMarkup()
