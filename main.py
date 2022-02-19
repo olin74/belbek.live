@@ -18,6 +18,7 @@ DEBUG_ID = 665812965  # Дебаг whitejoe
 ABOUT_LIMIT = 1000  # Лимит символов в описании
 DS_ID = "belbek_space"
 FORMAT_TIME = "%d.%m.%y %H:%M"
+FORMAT_DESC = "ДД.ММ.ГГ ЧЧ:ММ"
 
 
 class Space:
@@ -85,14 +86,20 @@ class Space:
         self.renew_cats()
 
         self.edit_items = ['Изменить', '📚', '❌', '🕰']
-        self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятие 🕰"]
+        self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятия 🕰"]
         self.limit_per_second = 5
         self.limit_counter = 0
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
-                              f"Для поиска отправьте любое слово или фразу"
+                              f"Для поиска отправьте любое слово, дату (ДД.ММ.ГГ) и/или фразу"
         self.day_today = -1
+        self.date_code = {"Последняя неделя": 0,
+                          "Сегодня": 1,
+                          "Завтра": 2,
+                          "На этой неделе": 3,
+                          "На следующей неделе": 4,
+                          "Через 2 недели и далее": 5}
 
     def save_views(self):
         for bitem_id in self.views.keys():
@@ -166,7 +173,6 @@ class Space:
                     message_text = f"/set_item {item_id}@{DS_ID}"
                     if row[13] > 0:
                         start_time = datetime.datetime.fromtimestamp(row[13])
-
                         message_text = message_text + f" {start_time.strftime(FORMAT_TIME)}"
                     message_text = message_text + f" {row[1]}"
                 else:
@@ -236,6 +242,7 @@ class Space:
                 keyboard.row(types.InlineKeyboardButton(text=f"{cat} ({count})", callback_data=f"ucat_{cat}"))
             add_row_text = f"{self.additional_scat[0]} ({len(self.deep_space.keys())})"
             keyboard.row(types.InlineKeyboardButton(text=add_row_text, callback_data=f"ds_cat"))
+            keyboard.row(types.InlineKeyboardButton(text=self.additional_scat[3], callback_data=f"events"))
             message_text = "Выберите сферу деятельности:"
             bot.send_message(user_id, message_text, reply_markup=keyboard)
 
@@ -305,11 +312,21 @@ class Space:
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
         elif menu_id == 5:  # Редактирование времени итема
             now_time = datetime.datetime.fromtimestamp(int(time.time()))
-            message_text = f"Пришлите дату и время меоприятия (в формате {FORMAT_TIME}), например:\n" \
+            message_text = f"Пришлите дату и время меоприятия (в формате {FORMAT_DESC}), например:\n" \
                            f"{now_time.strftime(FORMAT_TIME)}\nЧто бы удалить время введите /no_time\n" \
                            f"Для отмены - /cancel"
             self.check_th()
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+        elif menu_id == 6:  # Поиск мероприятий
+            for menu_item, date_code in self.date_code.items():
+                keyboard.row(types.InlineKeyboardButton(text=menu_item, callback_data=f"stime_{date_code}"))
+            message_text = "Выберите дату начала мероприятия или просто оптравьте текстом (ДД.ММ.ГГ)"
+            try:
+                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                      text=message_text, reply_markup=keyboard)
+            except Exception as error:
+                print("Error: ", error)
+                bot.send_message(user_id, message_text, reply_markup=keyboard)
 
     def my_items(self, bot, message):
         user_id = message.chat.id
@@ -382,6 +399,7 @@ class Space:
 
         # Формирование списка поиска по словам
 
+    # Формирование списка поиска из текста
     def do_search_text(self, bot, message, text):
 
         def is_contain(phrase: [], about_text: str):
@@ -412,9 +430,59 @@ class Space:
                     self.send_item(bot, user_id, item_id)
                     count += 1
             for item_id in self.deep_space.keys():
-                if is_contain(words, self.deep_space.hget(item_id, b'text').decode('utf-8')):
+                about = self.deep_space.hget(item_id, b'text').decode('utf-8')
+                if self.deep_space.hexists(item_id, b'star_time'):
+                    start_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(item_id, b'star_time')))
+                    about = f"{start_time.strftime(FORMAT_TIME)} " + about
+                if is_contain(words, about):
                     self.send_item(bot, user_id, item_id, is_ds=True)
                     count += 1
+
+        self.check_th()
+        after_message = f"Найдено затей: {count}\n"+self.hellow_message
+        self.check_th()
+        bot.send_message(user_id, after_message)
+
+    # Поиск событий
+    def do_search_date(self, bot, message, date_code):
+        x = time.localtime(int(time.time()))
+        mid_night = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
+        day_sec = 60 * 60 * 24
+        wd = time.localtime().tm_mday
+
+        def is_date(ts):
+            if date_code == 0:
+                return ts < mid_night
+            if date_code == 1:
+                return ts > mid_night and (ts < mid_night + day_sec * 1)
+            if date_code == 2:
+                return (ts > mid_night + day_sec * 1) and (ts < mid_night + day_sec * 2)
+            if date_code == 3:
+                return ts > mid_night and (ts < mid_night + day_sec * (7 - wd))
+            if date_code == 4:
+                return (ts > mid_night + day_sec * (7 - wd)) and (ts < mid_night + day_sec * (14 - wd))
+            if date_code == 5:
+                return ts > mid_night + day_sec * (14 - wd)
+
+        user_id = message.chat.id
+        count = 0
+        query = "SELECT * from labels WHERE start_time > 0"
+        self.cursor.execute(query)
+        while 1:
+            row = self.cursor.fetchone()
+            if row is None:
+                break
+            item_id = row[0]
+            start_time = row[13]
+            if is_date(start_time):
+                self.send_item(bot, user_id, item_id)
+                count += 1
+
+        for item_id in self.deep_space.keys():
+            start_time = int(self.deep_space.hget(item_id, b'start_time'))
+            if is_date(start_time):
+                self.send_item(bot, user_id, item_id, is_ds=True)
+                count += 1
 
         self.check_th()
         after_message = f"Найдено затей: {count}\n"+self.hellow_message
@@ -708,6 +776,10 @@ class Space:
                 self.users.hset(user_id, b'item', item_id)
                 self.users.hset(user_id, b'edit', 2)
                 self.go_menu(bot, call.message, 5)
+
+            if call.data[:5] == "ctime":
+                date_code = int(call.data.split('_')[1])
+                self.do_search_date(bot, call.message, date_code)
 
         bot.polling()
         #  try:
