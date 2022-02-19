@@ -519,7 +519,7 @@ class Space:
             if date_code == code:
                 message_text = message_text + ds
                 break
-        message_text = message_text + "\nНайдено {count} затей:"
+        message_text = message_text + f"\nНайдено {count} затей:"
         try:
             bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                   text=message_text, reply_markup=keyboard)
@@ -700,6 +700,7 @@ class Space:
                                    is_edited=True)
                     self.check_th()
                     bot.send_message(user_id, "Время начала затеи изменено")
+                    self.renew_cats()
 
                 except ValueError:
                     self.go_menu(bot, message, 5)
