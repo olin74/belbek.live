@@ -355,7 +355,7 @@ class Space:
         if not self.users.hexists(user_id, "category"):
             return
         category = self.users.hget(user_id, "category").decode("utf-8")
-        message_text = f"{category}"
+        message_text = f"🔎 {category}"
         if category == self.additional_scat[0]:
 
             for item_id in self.deep_space.keys():
@@ -404,6 +404,12 @@ class Space:
 
         def is_contain(phrase: [], about_text: str):
             for word in phrase:
+                if word.lower() == "сегодня":
+                    search_time = datetime.datetime.fromtimestamp(int(time.time()))
+                    word = search_time.strftime('%d.%m.%y')
+                if word.lower() == "завтра":
+                    search_time = datetime.datetime.fromtimestamp(24*60*60 + int(time.time()))
+                    word = search_time.strftime('%d.%m.%y')
                 if about_text.lower().find(word.lower()) < 0:
                     return False
             return True
@@ -441,10 +447,10 @@ class Space:
                     self.send_item(bot, user_id, item_id, is_ds=True)
                     count += 1
 
+        message_text = "🔎 " + ', '.join(words) + f"\nНайдено затей: {count}\n" + self.hellow_message
+
         self.check_th()
-        after_message = f"Найдено затей: {count}\n"+self.hellow_message
-        self.check_th()
-        bot.send_message(user_id, after_message)
+        bot.send_message(user_id, message_text)
 
     # Поиск событий
     def do_search_date(self, bot, message, date_code):
@@ -488,12 +494,18 @@ class Space:
                     self.send_item(bot, user_id, item_id, is_ds=True)
                     count += 1
         keyboard = types.InlineKeyboardMarkup()
-        message_text = f"Найдено {count} затей:"
+        message_text = "🔎 "
+        for ds, code in self.date_code.items():
+            if date_code == code:
+                message_text = message_text + ds
+                break
+        message_text = message_text + "\nНайдено {count} затей:"
         try:
             bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
                                   text=message_text, reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
+            bot.send_message(chat_id=user_id, text=message_text, reply_markup=keyboard)
         after_message = self.hellow_message
         self.check_th()
         bot.send_message(user_id, after_message)
