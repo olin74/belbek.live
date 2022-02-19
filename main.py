@@ -479,10 +479,11 @@ class Space:
                 count += 1
 
         for item_id in self.deep_space.keys():
-            start_time = int(self.deep_space.hget(item_id, b'start_time'))
-            if is_date(start_time):
-                self.send_item(bot, user_id, item_id, is_ds=True)
-                count += 1
+            if self.deep_space.hexists(item_id, b'start_time'):
+                start_time = int(self.deep_space.hget(item_id, b'start_time'))
+                if is_date(start_time):
+                    self.send_item(bot, user_id, item_id, is_ds=True)
+                    count += 1
         keyboard = types.InlineKeyboardMarkup()
         message_text = f"Найдено {count} затей:"
         try:
