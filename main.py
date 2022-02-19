@@ -448,7 +448,7 @@ class Space:
         x = time.localtime(int(time.time()))
         mid_night = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
         day_sec = 60 * 60 * 24
-        wd = time.localtime().tm_mday
+        wd = time.localtime().tm_wday
 
         def is_date(ts):
             if date_code == 0:
@@ -473,7 +473,7 @@ class Space:
             if row is None:
                 break
             item_id = row[0]
-            start_time = row[13]
+            start_time = int(row[13])
             if is_date(start_time):
                 self.send_item(bot, user_id, item_id)
                 count += 1
@@ -483,9 +483,14 @@ class Space:
             if is_date(start_time):
                 self.send_item(bot, user_id, item_id, is_ds=True)
                 count += 1
-
-        self.check_th()
-        after_message = f"Найдено затей: {count}\n"+self.hellow_message
+        keyboard = types.InlineKeyboardMarkup()
+        message_text = f"Найдено {count} затей:"
+        try:
+            bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                                  text=message_text, reply_markup=keyboard)
+        except Exception as error:
+            print("Error: ", error)
+        after_message = self.hellow_message
         self.check_th()
         bot.send_message(user_id, after_message)
 
