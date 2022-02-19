@@ -780,7 +780,7 @@ class Space:
             if call.data[:5] == "ctime":
                 date_code = int(call.data.split('_')[1])
                 self.do_search_date(bot, call.message, date_code)
-            if call.data[] == "events":
+            if call.data == "events":
                 self.go_menu(bot, call.message, 6)
 
         bot.polling()
