@@ -319,7 +319,7 @@ class Space:
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
         elif menu_id == 6:  # Поиск мероприятий
             for menu_item, date_code in self.date_code.items():
-                keyboard.row(types.InlineKeyboardButton(text=menu_item, callback_data=f"stime_{date_code}"))
+                keyboard.row(types.InlineKeyboardButton(text=menu_item, callback_data=f"ctime_{date_code}"))
             message_text = "Выберите дату начала мероприятия или просто оптравьте текстом (ДД.ММ.ГГ)"
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
@@ -780,6 +780,7 @@ class Space:
             if call.data[:5] == "ctime":
                 date_code = int(call.data.split('_')[1])
                 self.do_search_date(bot, call.message, date_code)
+
             if call.data == "events":
                 self.go_menu(bot, call.message, 6)
 
