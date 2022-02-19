@@ -426,6 +426,9 @@ class Space:
                     break
                 item_id = row[0]
                 about = row[1]
+                if row[13] > 0:
+                    start_time = datetime.datetime.fromtimestamp(row[13])
+                    about = f"{start_time.strftime(FORMAT_TIME)} " + about
                 if is_contain(words, about):
                     self.send_item(bot, user_id, item_id)
                     count += 1
