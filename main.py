@@ -431,8 +431,8 @@ class Space:
                     count += 1
             for item_id in self.deep_space.keys():
                 about = self.deep_space.hget(item_id, b'text').decode('utf-8')
-                if self.deep_space.hexists(item_id, b'star_time'):
-                    start_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(item_id, b'star_time')))
+                if self.deep_space.hexists(item_id, b'start_time'):
+                    start_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(item_id, b'start_time')))
                     about = f"{start_time.strftime(FORMAT_TIME)} " + about
                 if is_contain(words, about):
                     self.send_item(bot, user_id, item_id, is_ds=True)
