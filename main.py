@@ -70,7 +70,9 @@ class Space:
           subcategory_list
         '''
         # self.my_labels = redis.from_url(redis_url, db=3)
-        # self.search = redis.from_url(redis_url, db=4)
+        self.search = redis.from_url(redis_url, db=4)
+        for key in self.search.keys():
+            self.search.delete(key)
         self.deep_space = redis.from_url(redis_url, db=5)
         self.views = redis.from_url(redis_url, db=6)
 
@@ -116,9 +118,8 @@ class Space:
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
-                              f"Для поиска отправьте любое слово, дату (ДД.ММ.ГГ) и/или фразу"
+                              f"Для поиска отправьте любое слово, дату или фразу"
         self.day_today = -1
-
 
     def save_views(self):
         for bitem_id in self.views.keys():
@@ -270,6 +271,8 @@ class Space:
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
 
         elif menu_id == 1:  # Выбор сферы для поиска
+            self.users.hdel(user_id, "category")
+            self.users.hdel(user_id, "subcategory")
             for cat in self.categories.keys():
                 count = 0
                 for scat, scol in self.categories[cat].items():
@@ -288,7 +291,7 @@ class Space:
             keyboard.row(types.InlineKeyboardButton(text="📚 Все направления 📚", callback_data=f"dsub"))
             message_text = "Выберите направление:"
             try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                       text=message_text, reply_markup=keyboard)
             except Exception as error:
                 print("Error: ", error)
@@ -327,7 +330,7 @@ class Space:
             keyboard.row(*keyboard_line)
 
             try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                       text=message_text, reply_markup=keyboard)
             except Exception as error:
                 print("Error: ", error)
@@ -340,7 +343,7 @@ class Space:
                                                     callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
 
             try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                       text=message_text, reply_markup=keyboard)
             except Exception as error:
                 print("Error: ", error)
@@ -358,7 +361,7 @@ class Space:
                 keyboard.row(types.InlineKeyboardButton(text=text_item, callback_data=f"ctime_{date_code}"))
             message_text = "Выберите дату начала мероприятия или просто оптравьте текстом (ДД.ММ.ГГ)"
             try:
-                bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                       text=message_text, reply_markup=keyboard)
             except Exception as error:
                 print("Error: ", error)
@@ -373,9 +376,7 @@ class Space:
         while 1:
             row = self.cursor.fetchone()
             if row is None:
-
                 break
-
             item_id = row[0]
             if user_id == row[9]:
                 self.send_item(bot, user_id, item_id, is_edited=True)
@@ -419,13 +420,12 @@ class Space:
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
-        self.users.hdel(user_id, "category")
-        self.users.hdel(user_id, "subcategory")
+
         self.check_th()
 
         message_text = message_text + f"\nНайдено {count} затей:"
         try:
-            bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+            bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                   text=message_text, reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
@@ -521,7 +521,7 @@ class Space:
                 break
         message_text = message_text + f"\nНайдено {count} затей:"
         try:
-            bot.edit_message_text(chat_id=user_id, message_id=int(self.users.hget(user_id, b'message_id')),
+            bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                   text=message_text, reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
@@ -629,11 +629,13 @@ class Space:
             self.cursor.execute(query, (0, item_id))
             self.connection.commit()
             self.send_item(bot, user_id, item_id, is_command=True)
-            self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                           is_edited=True)
             self.check_th()
             bot.send_message(user_id, f"Вермя начала затеи удалено, что бы вернуть время,"
                                       f" следует отметить затею как {self.additional_scat[3]}")
+            try:
+                bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+            finally:
+                self.send_item(bot, user_id, item_id, is_edited=True)
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
@@ -665,11 +667,13 @@ class Space:
                     query = "UPDATE labels SET about = %s WHERE id = %s"
                     self.cursor.execute(query, (about, item_id))
                     self.connection.commit()
-                    self.send_item(bot, user_id, item_id, is_command=True)
-                    self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                   is_edited=True)
                     self.check_th()
                     bot.send_message(user_id, "Описание затеи изменено")
+                    self.send_item(bot, user_id, item_id, is_command=True)
+                    try:
+                        bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+                    finally:
+                        self.send_item(bot, user_id, item_id, is_edited=True)
 
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
@@ -696,10 +700,13 @@ class Space:
                     self.cursor.execute(query, (start_time, item_id))
                     self.connection.commit()
                     self.send_item(bot, user_id, item_id, is_command=True)
-                    self.send_item(bot, user_id, item_id, message_id=int(self.users.hget(user_id, b'message_id')),
-                                   is_edited=True)
                     self.check_th()
                     bot.send_message(user_id, "Время начала затеи изменено")
+                    try:
+                        bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+                    finally:
+                        self.send_item(bot, user_id, item_id, is_edited=True)
+
                     self.renew_cats()
 
                 except ValueError:
@@ -711,7 +718,6 @@ class Space:
             cur_time = int(time.time())
             bot.answer_callback_query(call.id)
             self.users.hset(user_id, b'last_login', cur_time)
-            # Фиксируем ID сообщения
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
             if not self.users.hexists(user_id, b'edit'):
                 bot.send_message(user_id, "Бот обновился, нажмите /start")
@@ -812,6 +818,7 @@ class Space:
                 self.send_item(bot, user_id, label_id, is_command=True)
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
+                self.renew_cats()
 
             if call.data[:4] == "time":
                 item_id = int(call.data.split('_')[1])
