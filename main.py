@@ -563,38 +563,6 @@ class Space:
                         break
                     self.send_item(bot, user_id, row[0], is_command=True)
 
-        @bot.message_handler(commands=['set_item'])
-        def set_item_message(message):
-            user_id = message.chat.id
-            if user_id == BOTCHAT_ID:
-                id_pos = message.text.find(' ', 0)
-                if id_pos < 0:
-                    return
-                id_pos_end = message.text.find(' ', id_pos+1)
-
-                if id_pos_end < 0:
-                    item_id = message.text[id_pos+1:]
-                    self.deep_space.delete(item_id)
-                    # bot.send_message(DEBUG_ID, f"{item_id}")
-                else:
-                    item_id = message.text[id_pos + 1:id_pos_end]
-                    start_pos = 1 + id_pos_end
-                    start_pos_end = message.text.find(' ', start_pos)
-                    start_pos_end = message.text.find(' ', start_pos_end + 1)
-                    try:
-                        start_str = message.text[start_pos:start_pos_end]
-                        start_time = int(time.mktime(time.strptime(start_str, FORMAT_TIME)))
-                        self.deep_space.hset(item_id, b'start_time', start_time)
-                        item_pos = start_pos_end + 1
-                    except ValueError:
-                        item_pos = 1 + id_pos_end
-                        if self.deep_space.exists(item_id):
-                            self.deep_space.hdel(item_id, b'start_time')
-
-                    item = message.text[item_pos:]
-                    self.deep_space.hset(item_id, b'text', item)
-                    # bot.send_message(DEBUG_ID,f"{item_id} {item}")
-
         @bot.message_handler(commands=['new_item'])
         def new_item(message):
             user_id = message.chat.id
@@ -637,6 +605,42 @@ class Space:
             finally:
                 self.send_item(bot, user_id, item_id, is_edited=True)
 
+        def ds_message(m_text, photo_id=None):
+            end_pos = m_text.find(' ')
+            ds_id = m_text[:end_pos]
+            if ds_id.find('@') < 0:
+                return
+            if end_pos < 0:
+                self.deep_space.delete(ds_id)
+                return
+            start_pos = end_pos + 1
+            start_time = None
+            try:
+                end_pos = m_text.find(' ', start_pos)
+                end_pos = m_text.find(' ', end_pos + 1)
+                start_str = m_text[start_pos:end_pos]
+                start_time = int(time.mktime(time.strptime(start_str, FORMAT_TIME)))
+                start_pos = end_pos + 1
+            except ValueError:
+                if self.deep_space.exists(ds_id):
+                    self.deep_space.hdel(ds_id, b'start_time')
+            item = m_text[start_pos:]
+            if len(item) == 0:
+                return
+            if start_time is not None:
+                self.deep_space.hset(ds_id, b'start_time', start_time)
+            if photo_id is not None:
+                self.deep_space.hset(ds_id, b'photo', photo_id)
+            self.deep_space.hset(ds_id, b'text', item)
+            return
+
+        # Обработка фото
+        @bot.message_handler(content_types=['photo'])
+        def message_photo(message):
+            if message.chat.id == BOTCHAT_ID:
+                ds_message(message.caption, message.photo[0].file_id)
+                return
+
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
         def message_text(message):
@@ -646,9 +650,9 @@ class Space:
             if time.localtime().tm_mday != self.day_today:
                 self.day_today = time.localtime().tm_mday
                 self.save_views()
-            if user_id == BOTCHAT_ID:
+            if message.chat.id == BOTCHAT_ID:
+                ds_message(message.text)
                 return
-
             self.users.hset(user_id, b'last_login', cur_time)
             if not self.users.hexists(user_id, b'edit'):
                 bot.send_message(user_id, "Бот обновился, нажмите /start")
