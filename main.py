@@ -608,6 +608,7 @@ class Space:
         def ds_message(m_text, photo_id=None):
             end_pos = m_text.find(' ')
             ds_id = m_text[:end_pos]
+            bot.send_message(BOTCHAT_ID, f"ds_id {ds_id}")
             if ds_id.find('@') < 0:
                 return
             if end_pos < 0:
