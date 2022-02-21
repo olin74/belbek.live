@@ -608,11 +608,10 @@ class Space:
         def ds_message(m_text, photo_id=None):
             end_pos = m_text.find(' ')
             ds_id = m_text[:end_pos]
-            bot.send_message(BOTCHAT_ID, f"ds_id {ds_id}")
             if ds_id.find('@') < 0:
                 return
             if end_pos < 0:
-                self.deep_space.delete(ds_id)
+                self.deep_space.delete(m_text)
                 return
             start_pos = end_pos + 1
             start_time = None
