@@ -399,17 +399,14 @@ class Space:
 
     # Формирование списка поиска из категорий
     def do_search(self, bot, message, item_fix=None, user_id=None):
-        bot.send_message(DEBUG_ID, f"search {user_id} - {item_fix}")
         if user_id is None:
             user_id = message.chat.id
         count = 0
         keyboard = types.InlineKeyboardMarkup()
-        bot.send_message(DEBUG_ID, f"{user_id} - ")
         if not self.users.hexists(user_id, "category"):
             return
         category = self.users.hget(user_id, "category").decode("utf-8")
         # Deep space
-        bot.send_message(DEBUG_ID, f"{category} ")
         if category == self.additional_scat[0]:
             if item_fix is not None:
                 self.send_item(bot, user_id, item_fix, is_ds=True)
@@ -436,7 +433,7 @@ class Space:
 
                 if row is None:
                     break
-                bot.send_message(DEBUG_ID, f"row[0] {row[0]}")
+
                 item_id = row[0]
                 label_sub_list = row[3]
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
@@ -739,7 +736,7 @@ class Space:
                         bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
                     finally:
                         self.send_item(bot, user_id, item_id, is_edited=True)
-                    self.research(bot, user_id, if_cat=False, if_date=False)
+                    self.research(bot, item_id, if_cat=False, if_date=False)
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
                             "VALUES (%s, %s, %s, %s, %s)"
@@ -804,7 +801,7 @@ class Space:
             if call.data[:4] == "done":
                 item = int(call.data.split('_')[1])
                 self.renew_cats()
-                bot.send_message(DEBUG_ID, f"{user_id} - done")
+
                 self.research(bot, user_id, if_text=False, if_date=False)
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
