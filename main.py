@@ -206,7 +206,7 @@ class Space:
             if row is not None:
 
                 if is_command:
-                    message_text = f"/set_item {item_id}@{DS_ID}"
+                    message_text = f"{item_id}@{DS_ID}"
                     if row[13] > 0:
                         start_time = datetime.datetime.fromtimestamp(row[13])
                         message_text = message_text + f" {start_time.strftime(FORMAT_TIME)}"
@@ -239,7 +239,7 @@ class Space:
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                 callback_data=f"del_{item_id}"))
             elif is_command:
-                message_text = f"/set_item {item_id}@{DS_ID}"
+                message_text = f"{item_id}@{DS_ID}"
 
         keyboard = types.InlineKeyboardMarkup()
         keyboard.row(*item_menu)
@@ -382,22 +382,34 @@ class Space:
                 self.send_item(bot, user_id, item_id, is_edited=True)
                 count += 1
 
-    # Формирование списка поиска из категорий
-    def do_search(self, bot, message):
+    def research(self, bot, item_id, if_cat=True, if_text=True, if_date=True):
+        for user_id in self.search.keys():
+            s_string = self.search.get(user_id).decode('utf-8')
+            if if_cat and s_string == "cat":
+                self.do_search(bot, None, item_fix=item_id, user_id=user_id)
+            if if_text and s_string[:5] == "text:":
+                self.do_search_text(bot, None, s_string[5:], item_fix=item_id, user_id=user_id)
+            if if_date and s_string[:5] == "date:":
+                self.do_search_date(bot, None, int(s_string[5:]), item_fix=item_id, user_id=user_id)
 
-        user_id = message.chat.id
+    # Формирование списка поиска из категорий
+    def do_search(self, bot, message, item_fix=None, user_id=None):
+
+        if user_id is None:
+            user_id = message.chat.id
         count = 0
         keyboard = types.InlineKeyboardMarkup()
-        # Deep space
+
         if not self.users.hexists(user_id, "category"):
             return
         category = self.users.hget(user_id, "category").decode("utf-8")
-        message_text = f"🔎 {category}"
+        # Deep space
         if category == self.additional_scat[0]:
-
-            for item_id in self.deep_space.keys():
-
-                self.send_item(bot, user_id, item_id, is_ds=True)
+            if item_fix is not None:
+                self.send_item(bot, user_id, item_fix, is_ds=True)
+            else:
+                for item_id in self.deep_space.keys():
+                    self.send_item(bot, user_id, item_id, is_ds=True)
 
         else:
             # Формируем список необходимых категорий
@@ -406,10 +418,13 @@ class Space:
             if self.users.hexists(user_id, "subcategory"):
                 sub_c = self.users.hget(user_id, "subcategory").decode('utf-8')
                 target_subcategory_list = [sub_c]
-                message_text = message_text + f"\n{sub_c}"
-            # Перебираем все метки
-            query = "SELECT * from labels"
-            self.cursor.execute(query)
+            # Перебираем метки
+            if item_fix is None:
+                query = "SELECT * from labels"
+                self.cursor.execute(query)
+            else:
+                query = "SELECT * from labels WHERE id = %s"
+                self.cursor.execute(query, (item_fix,))
             while 1:
                 row = self.cursor.fetchone()
                 if row is None:
@@ -420,24 +435,28 @@ class Space:
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
-
-        self.check_th()
-
-        message_text = message_text + f"\nНайдено {count} затей:"
-        try:
-            bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
-                                  text=message_text, reply_markup=keyboard)
-        except Exception as error:
-            print("Error: ", error)
-        after_message = self.hellow_message
-        self.check_th()
-        bot.send_message(user_id, after_message)
+        if item_fix is None:
+            category = self.users.hget(user_id, "category").decode("utf-8")
+            message_text = f"🔎 {category}"
+            if category != self.additional_scat[0] and self.users.hexists(user_id, "subcategory"):
+                sub_c = self.users.hget(user_id, "subcategory").decode('utf-8')
+                message_text = message_text + f"\n{sub_c}"
+            message_text = message_text + f"\nНайдено {count} затей:"
+            try:
+                self.check_th()
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
+                                      text=message_text, reply_markup=keyboard)
+            except Exception as error:
+                print("Error: ", error)
+            after_message = self.hellow_message
+            self.check_th()
+            bot.send_message(user_id, after_message)
+            self.search.set(user_id, "cat")
 
         # Формирование списка поиска по словам
 
     # Формирование списка поиска из текста
-    def do_search_text(self, bot, message, text):
-
+    def do_search_text(self, bot, message, text, item_fix=None, user_id=None):
         def is_contain(phrase: [], about_text: str):
             for word in phrase:
                 if word.lower() == "сегодня":
@@ -450,7 +469,18 @@ class Space:
                     return False
             return True
 
-        user_id = message.chat.id
+        def check_ds(label_id):
+            about_text = self.deep_space.hget(label_id, b'text').decode('utf-8')
+            if self.deep_space.hexists(label_id, b'start_time'):
+                s_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(label_id, b'start_time')))
+                about_text = f"{s_time.strftime(FORMAT_TIME)} " + about_text
+            if is_contain(words, about_text):
+                self.send_item(bot, user_id, label_id, is_ds=True)
+                return True
+            return False
+
+        if user_id is None:
+            user_id = message.chat.id
         count = 0
 
         pre_words = text.split(' ')
@@ -460,8 +490,12 @@ class Space:
                 words.append(w)
 
         if len(words) > 0:
-            query = "SELECT * from labels"
-            self.cursor.execute(query)
+            if item_fix is None:
+                query = "SELECT * from labels"
+                self.cursor.execute(query)
+            else:
+                query = "SELECT * from labels WHERE id = %s"
+                self.cursor.execute(query, (item_fix,))
             while 1:
                 row = self.cursor.fetchone()
                 if row is None:
@@ -474,29 +508,31 @@ class Space:
                 if is_contain(words, about):
                     self.send_item(bot, user_id, item_id)
                     count += 1
-            for item_id in self.deep_space.keys():
-                about = self.deep_space.hget(item_id, b'text').decode('utf-8')
-                if self.deep_space.hexists(item_id, b'start_time'):
-                    start_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(item_id, b'start_time')))
-                    about = f"{start_time.strftime(FORMAT_TIME)} " + about
-                if is_contain(words, about):
-                    self.send_item(bot, user_id, item_id, is_ds=True)
-                    count += 1
-
-        message_text = "🔎 " + ', '.join(words) + f"\nНайдено затей: {count}\n" + self.hellow_message
-
-        self.check_th()
-        bot.send_message(user_id, message_text)
+            if item_fix is None:
+                for item_id in self.deep_space.keys():
+                    if check_ds(item_id):
+                        count += 1
+            else:
+                check_ds(item_fix)
+        if item_fix is None:
+            message_text = "🔎 " + ', '.join(words) + f"\nНайдено затей: {count}\n" + self.hellow_message
+            self.check_th()
+            bot.send_message(user_id, message_text)
+            self.search.set(user_id, f"text:{text}")
 
     # Поиск событий
-    def do_search_date(self, bot, message, date_code):
+    def do_search_date(self, bot, message, date_code, item_fix=None, user_id=None):
         x = time.localtime(int(time.time()))
         mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
-
-        user_id = message.chat.id
+        if user_id is None:
+            user_id = message.chat.id
         count = 0
-        query = "SELECT * from labels WHERE start_time > 0"
-        self.cursor.execute(query)
+        if item_fix is None:
+            query = "SELECT * from labels WHERE start_time > 0"
+            self.cursor.execute(query)
+        else:
+            query = "SELECT * from labels WHERE id = %s AND start_time > 0"
+            self.cursor.execute(query, (item_fix,))
         while 1:
             row = self.cursor.fetchone()
             if row is None:
@@ -506,29 +542,35 @@ class Space:
             if is_date(start_time, mnight, date_code):
                 self.send_item(bot, user_id, item_id)
                 count += 1
-
-        for item_id in self.deep_space.keys():
-            if self.deep_space.hexists(item_id, b'start_time'):
-                start_time = int(self.deep_space.hget(item_id, b'start_time'))
+        if item_fix is None:
+            for item_id in self.deep_space.keys():
+                if self.deep_space.hexists(item_id, b'start_time'):
+                    start_time = int(self.deep_space.hget(item_id, b'start_time'))
+                    if is_date(start_time, mnight, date_code):
+                        self.send_item(bot, user_id, item_id, is_ds=True)
+                        count += 1
+            keyboard = types.InlineKeyboardMarkup()
+            message_text = "🔎 "
+            for ds, code in self.date_code.items():
+                if date_code == code:
+                    message_text = message_text + ds
+                    break
+            message_text = message_text + f"\nНайдено {count} затей:"
+            try:
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
+                                      text=message_text, reply_markup=keyboard)
+            except Exception as error:
+                print("Error: ", error)
+                bot.send_message(chat_id=user_id, text=message_text, reply_markup=keyboard)
+            after_message = self.hellow_message
+            self.check_th()
+            bot.send_message(user_id, after_message)
+            self.search.set(user_id, f"date:{date_code}")
+        else:
+            if self.deep_space.hexists(item_fix, b'start_time'):
+                start_time = int(self.deep_space.hget(item_fix, b'start_time'))
                 if is_date(start_time, mnight, date_code):
-                    self.send_item(bot, user_id, item_id, is_ds=True)
-                    count += 1
-        keyboard = types.InlineKeyboardMarkup()
-        message_text = "🔎 "
-        for ds, code in self.date_code.items():
-            if date_code == code:
-                message_text = message_text + ds
-                break
-        message_text = message_text + f"\nНайдено {count} затей:"
-        try:
-            bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
-                                  text=message_text, reply_markup=keyboard)
-        except Exception as error:
-            print("Error: ", error)
-            bot.send_message(chat_id=user_id, text=message_text, reply_markup=keyboard)
-        after_message = self.hellow_message
-        self.check_th()
-        bot.send_message(user_id, after_message)
+                    self.send_item(bot, user_id, item_fix, is_ds=True)
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
@@ -588,6 +630,15 @@ class Space:
                 self.check_th()
                 bot.send_message(user_id, "Ввод отменён")
 
+        # Остановка поиска
+        @bot.message_handler(commands=['stop'])
+        def stop_search(message):
+            user_id = message.chat.id
+            if self.search.exists(user_id):
+                self.search.delete(user_id)
+                self.check_th()
+                bot.send_message(user_id, "Поиск остановлен")
+
         # Удаление времени
         @bot.message_handler(commands=['no_time'])
         def no_time(message):
@@ -631,7 +682,10 @@ class Space:
                 self.deep_space.hset(ds_id, b'start_time', start_time)
             if photo_id is not None:
                 self.deep_space.hset(ds_id, b'photo', photo_id)
+            else:
+                self.deep_space.hdel(ds_id, b'photo')
             self.deep_space.hset(ds_id, b'text', item)
+            self.research(bot, ds_id)
             return
 
         # Обработка фото
@@ -678,7 +732,7 @@ class Space:
                         bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
                     finally:
                         self.send_item(bot, user_id, item_id, is_edited=True)
-
+                    self.research(bot, user_id, if_cat=False, if_date=False)
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
                             "VALUES (%s, %s, %s, %s, %s)"
@@ -695,6 +749,7 @@ class Space:
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
+                    self.research(bot, user_id, if_cat=False)
             elif int(self.users.hget(user_id, b'edit')) == 2:
                 try:
                     start_time = int(time.mktime(time.strptime(message.text, FORMAT_TIME)))
@@ -710,7 +765,7 @@ class Space:
                         bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
                     finally:
                         self.send_item(bot, user_id, item_id, is_edited=True)
-
+                    self.research(bot, user_id, if_cat=False)
                     self.renew_cats()
 
                 except ValueError:
@@ -742,6 +797,7 @@ class Space:
             if call.data[:4] == "done":
                 item = int(call.data.split('_')[1])
                 self.renew_cats()
+                self.research(bot, user_id, if_text=False, if_date=False)
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
 
@@ -822,6 +878,7 @@ class Space:
                 self.send_item(bot, user_id, label_id, is_command=True)
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
+                bot.send_message(user_id, "Затея")
                 self.renew_cats()
 
             if call.data[:4] == "time":
