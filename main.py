@@ -550,7 +550,6 @@ class Space:
                 self.send_item(bot, user_id, item_id)
                 count += 1
 
-
         if item_fix is None:
             for item_id in self.deep_space.keys():
                 if self.deep_space.hexists(item_id, b'start_time'):
@@ -712,6 +711,9 @@ class Space:
             # Check new day
             if time.localtime().tm_mday != self.day_today:
                 self.day_today = time.localtime().tm_mday
+                for buser_id in self.search.keys():
+                    if self.search.get(buser_id).decode('utf-8') == "date:1":
+                        self.do_search_date(bot, None, 1, item_fix=None, user_id=int(buser_id))
                 self.save_views()
             if message.chat.id == BOTCHAT_ID:
                 ds_message(message.text)
