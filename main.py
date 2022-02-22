@@ -385,11 +385,11 @@ class Space:
             s_string = self.search.get(user_id).decode('utf-8')
 
             if if_cat and s_string == "cat":
-                self.do_search(bot, None, item_fix=item_id, user_id=user_id)
+                self.do_search(bot, None, item_fix=item_id, user_id=int(user_id))
             if if_text and s_string[:5] == "text:":
-                self.do_search_text(bot, None, s_string[5:], item_fix=item_id, user_id=user_id)
+                self.do_search_text(bot, None, s_string[5:], item_fix=item_id, user_id=int(user_id))
             if if_date and s_string[:5] == "date:":
-                self.do_search_date(bot, None, int(s_string[5:]), item_fix=item_id, user_id=user_id)
+                self.do_search_date(bot, None, int(s_string[5:]), item_fix=item_id, user_id=int(user_id))
 
     # Формирование списка поиска из категорий
     def do_search(self, bot, message, item_fix=None, user_id=None):
@@ -398,14 +398,13 @@ class Space:
             user_id = message.chat.id
         count = 0
         keyboard = types.InlineKeyboardMarkup()
-        bot.send_message(DEBUG_ID, "search")
         if not self.users.hexists(user_id, "category"):
             return
         category = self.users.hget(user_id, "category").decode("utf-8")
         # Deep space
         if category == self.additional_scat[0]:
             if item_fix is not None:
-                bot.send_message(DEBUG_ID, "send")
+                bot.send_message(DEBUG_ID, f"send {user_id} {item_fix}")
                 self.send_item(bot, user_id, item_fix, is_ds=True)
             else:
                 for item_id in self.deep_space.keys():
