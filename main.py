@@ -475,13 +475,14 @@ class Space:
             return True
 
         def check_ds(label_id):
-            about_text = self.deep_space.hget(label_id, b'text').decode('utf-8')
-            if self.deep_space.hexists(label_id, b'start_time'):
-                s_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(label_id, b'start_time')))
-                about_text = f"{s_time.strftime(FORMAT_TIME)} " + about_text
-            if is_contain(words, about_text):
-                self.send_item(bot, user_id, label_id, is_ds=True)
-                return True
+            if self.deep_space.exists(label_id):
+                about_text = self.deep_space.hget(label_id, b'text').decode('utf-8')
+                if self.deep_space.hexists(label_id, b'start_time'):
+                    s_time = datetime.datetime.fromtimestamp(int(self.deep_space.hget(label_id, b'start_time')))
+                    about_text = f"{s_time.strftime(FORMAT_TIME)} " + about_text
+                if is_contain(words, about_text):
+                    self.send_item(bot, user_id, label_id, is_ds=True)
+                    return True
             return False
 
         if user_id is None:
