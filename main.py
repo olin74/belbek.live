@@ -493,25 +493,26 @@ class Space:
             if len(w) > 2:
                 words.append(w)
 
-        if len(words) > 0 and (item_fix is None or type(item_fix) is int):
-            if item_fix is None:
-                query = "SELECT * from labels"
-                self.cursor.execute(query)
-            else:
-                query = "SELECT * from labels WHERE id = %s"
-                self.cursor.execute(query, (item_fix,))
-            while 1:
-                row = self.cursor.fetchone()
-                if row is None:
-                    break
-                item_id = row[0]
-                about = row[1]
-                if row[13] > 0:
-                    start_time = datetime.datetime.fromtimestamp(row[13])
-                    about = f"{start_time.strftime(FORMAT_TIME)} " + about
-                if is_contain(words, about):
-                    self.send_item(bot, user_id, item_id)
-                    count += 1
+        if len(words) > 0:
+            if item_fix is None or type(item_fix) is int:
+                if item_fix is None:
+                    query = "SELECT * from labels"
+                    self.cursor.execute(query)
+                else:
+                    query = "SELECT * from labels WHERE id = %s"
+                    self.cursor.execute(query, (item_fix,))
+                while 1:
+                    row = self.cursor.fetchone()
+                    if row is None:
+                        break
+                    item_id = row[0]
+                    about = row[1]
+                    if row[13] > 0:
+                        start_time = datetime.datetime.fromtimestamp(row[13])
+                        about = f"{start_time.strftime(FORMAT_TIME)} " + about
+                    if is_contain(words, about):
+                        self.send_item(bot, user_id, item_id)
+                        count += 1
 
             if item_fix is None:
                 for item_id in self.deep_space.keys():
