@@ -71,8 +71,6 @@ class Space:
         '''
         # self.my_labels = redis.from_url(redis_url, db=3)
         self.search = redis.from_url(redis_url, db=4)
-        for key in self.search.keys():
-            self.search.delete(key)
         self.deep_space = redis.from_url(redis_url, db=5)
         self.views = redis.from_url(redis_url, db=6)
 
@@ -385,6 +383,7 @@ class Space:
     def research(self, bot, item_id, if_cat=True, if_text=True, if_date=True):
         for user_id in self.search.keys():
             s_string = self.search.get(user_id).decode('utf-8')
+            bot.send_message(DEBUG_ID,s_string)
             if if_cat and s_string == "cat":
                 self.do_search(bot, None, item_fix=item_id, user_id=user_id)
             if if_text and s_string[:5] == "text:":
@@ -410,7 +409,7 @@ class Space:
             else:
                 for item_id in self.deep_space.keys():
                     self.send_item(bot, user_id, item_id, is_ds=True)
-
+                    count += 1
         else:
             # Формируем список необходимых категорий
 
