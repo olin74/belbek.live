@@ -116,7 +116,8 @@ class Space:
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
-                              f"Для поиска отправьте любое слово, дату или фразу"
+                              f"Для нового поиска отправьте любое слово, дату или фразу\n" \
+                              f"Для остановки поиска - /stop"
         self.day_today = -1
 
     def save_views(self):
@@ -404,7 +405,6 @@ class Space:
         # Deep space
         if category == self.additional_scat[0]:
             if item_fix is not None:
-                bot.send_message(DEBUG_ID, f"send {user_id} {item_fix}")
                 self.send_item(bot, user_id, item_fix, is_ds=True)
             else:
                 for item_id in self.deep_space.keys():
