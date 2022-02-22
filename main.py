@@ -96,6 +96,7 @@ class Space:
 
         # Подгрузка категорий
         self.categories = {}
+        self.cat_stat = {}
         with open("categories.json") as json_file:
             cat_dict = json.load(json_file)
             for cat, scat in cat_dict.items():
@@ -138,6 +139,7 @@ class Space:
         for cat, ucats in self.categories.items():
             for ucat in ucats.keys():
                 self.categories[cat][ucat] = 0
+            self.cat_stat[cat] = 0
         for evt in self.date_code.keys():
             self.events_count[evt] = 0
         query = "SELECT * from labels"
@@ -147,11 +149,16 @@ class Space:
             if row is None:
                 break
             label_sub_list = row[3]
-            for label_sub in label_sub_list:
-                for cat, scat in self.categories.items():
-                    for uscat in scat.keys():
+            for cat, scat in self.categories.items():
+                yes_cat = False
+                for uscat in scat.keys():
+                    for label_sub in label_sub_list:
                         if label_sub == uscat:
                             self.categories[cat][uscat] += 1
+                            yes_cat = True
+                if yes_cat:
+                    self.cat_stat[cat] += 1
+
             if row[13] > 0:
                 x = time.localtime(row[13])
 
@@ -273,10 +280,8 @@ class Space:
             self.users.hdel(user_id, "category")
             self.users.hdel(user_id, "subcategory")
             for cat in self.categories.keys():
-                count = 0
-                for scat, scol in self.categories[cat].items():
-                    count += scol
-                keyboard.row(types.InlineKeyboardButton(text=f"{cat} ({count})", callback_data=f"ucat_{cat}"))
+                keyboard.row(types.InlineKeyboardButton(text=f"{cat} ({self.cat_stat[cat]})",
+                                                        callback_data=f"ucat_{cat}"))
             add_row_text = f"{self.additional_scat[0]} ({len(self.deep_space.keys())})"
             keyboard.row(types.InlineKeyboardButton(text=add_row_text, callback_data=f"ds_cat"))
             keyboard.row(types.InlineKeyboardButton(text=self.additional_scat[3], callback_data=f"events"))
@@ -394,15 +399,17 @@ class Space:
 
     # Формирование списка поиска из категорий
     def do_search(self, bot, message, item_fix=None, user_id=None):
-
+        bot.send_message(DEBUG_ID, f"search {user_id} - {item_fix}")
         if user_id is None:
             user_id = message.chat.id
         count = 0
         keyboard = types.InlineKeyboardMarkup()
+        bot.send_message(DEBUG_ID, f"{user_id} - ")
         if not self.users.hexists(user_id, "category"):
             return
         category = self.users.hget(user_id, "category").decode("utf-8")
         # Deep space
+        bot.send_message(DEBUG_ID, f"{category} ")
         if category == self.additional_scat[0]:
             if item_fix is not None:
                 self.send_item(bot, user_id, item_fix, is_ds=True)
@@ -426,9 +433,10 @@ class Space:
                 self.cursor.execute(query, (item_fix,))
             while 1:
                 row = self.cursor.fetchone()
+
                 if row is None:
                     break
-
+                bot.send_message(DEBUG_ID, f"row[0] {row[0]}")
                 item_id = row[0]
                 label_sub_list = row[3]
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
@@ -796,6 +804,7 @@ class Space:
             if call.data[:4] == "done":
                 item = int(call.data.split('_')[1])
                 self.renew_cats()
+                bot.send_message(DEBUG_ID, f"{user_id} - done")
                 self.research(bot, user_id, if_text=False, if_date=False)
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
@@ -877,7 +886,7 @@ class Space:
                 self.send_item(bot, user_id, label_id, is_command=True)
                 self.send_item(bot, user_id, label_id,
                                message_id=int(self.users.hget(user_id, b'message_id')))
-                bot.send_message(user_id, "Затея")
+                bot.send_message(user_id, "Затея удалена")
                 self.renew_cats()
 
             if call.data[:4] == "time":
