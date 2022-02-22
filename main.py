@@ -21,9 +21,11 @@ FORMAT_TIME = "%d.%m.%y %H:%M"
 FORMAT_DESC = "ДД.ММ.ГГ ЧЧ:ММ"
 
 
-def is_date(ts, mid_night, date_code):
+def is_date(ts, date_code):
     day_sec = 24 * 60 * 60
     wd = time.localtime(ts).tm_wday
+    x = time.localtime(ts)
+    mid_night = ts - x.tm_sec - x.tm_min * 60 - x.tm_hour * 60 * 60
     if date_code == 0:
         return ts < mid_night and (ts > mid_night - day_sec * 7)
     if date_code == 1:
@@ -110,7 +112,7 @@ class Space:
                           "Через 2 недели и далее": 5}
         self.renew_cats()
 
-        self.edit_items = ['📝 Описание', '📚 Направления', '❌', '🕰 Дата и время']
+        self.edit_items = ['📝 Описание', '📚 Направления', '❌ Удалить', '🕰 Дата и время']
         self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятия 🕰"]
         self.limit_per_second = 5
         self.limit_counter = 0
@@ -136,6 +138,10 @@ class Space:
                 self.views[bitem_id] = 0
 
     def renew_cats(self):
+        def check_date(date_event):
+            for evnt, code in self.date_code.items():
+                if is_date(date_event, code):
+                    self.events_count[evnt] += 1
         for cat, ucats in self.categories.items():
             for ucat in ucats.keys():
                 self.categories[cat][ucat] = 0
@@ -158,21 +164,11 @@ class Space:
                             yes_cat = True
                 if yes_cat:
                     self.cat_stat[cat] += 1
-
             if row[13] > 0:
-                x = time.localtime(row[13])
-
-                mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
-                for evt, code in self.date_code.items():
-                    if is_date(row[13], mnight, code):
-                        self.events_count[evt] += 1
+                check_date(row[13])
         for ds_id in self.deep_space.keys():
             if self.deep_space.hexists(ds_id, b'start_time'):
-                x = time.localtime(int(self.deep_space.hget(ds_id, b'start_time')))
-                mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
-                for evt, code in self.date_code.items():
-                    if is_date(int(self.deep_space.hget(ds_id, b'start_time')), mnight, code):
-                        self.events_count[evt] += 1
+                check_date(int(self.deep_space.hget(ds_id, b'start_time')))
 
     def check_th(self):
         while 1:
@@ -234,7 +230,7 @@ class Space:
                     #  🆔 {row[0]}@{DS_ID}\n"
 
                 if is_edited:
-                    message_text = message_text + f"\n\nЧто бы изменить затею, нажмите одну из кнопок:"
+                    message_text = message_text + f"\n\nЧто бы изменить затею, нажмите одну из кнопок под сообщением"
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
                     if row[13] > 0:
@@ -530,8 +526,6 @@ class Space:
 
     # Поиск событий
     def do_search_date(self, bot, message, date_code, item_fix=None, user_id=None):
-        x = time.localtime(int(time.time()))
-        mnight = int(time.mktime(time.strptime(f"{x.tm_mday}.{x.tm_mon}.{x.tm_year} 00:00", "%d.%m.%Y %H:%M")))
         if user_id is None:
             user_id = message.chat.id
         count = 0
@@ -548,7 +542,7 @@ class Space:
                 break
             item_id = row[0]
             start_time = int(row[13])
-            if is_date(start_time, mnight, date_code):
+            if is_date(start_time, date_code):
                 self.send_item(bot, user_id, item_id)
                 count += 1
 
@@ -556,7 +550,7 @@ class Space:
             for item_id in self.deep_space.keys():
                 if self.deep_space.hexists(item_id, b'start_time'):
                     start_time = int(self.deep_space.hget(item_id, b'start_time'))
-                    if is_date(start_time, mnight, date_code):
+                    if is_date(start_time, date_code):
                         self.send_item(bot, user_id, item_id, is_ds=True)
                         count += 1
             keyboard = types.InlineKeyboardMarkup()
@@ -579,7 +573,7 @@ class Space:
         else:
             if self.deep_space.hexists(item_fix, b'start_time'):
                 start_time = int(self.deep_space.hget(item_fix, b'start_time'))
-                if is_date(start_time, mnight, date_code):
+                if is_date(start_time, date_code):
                     self.send_item(bot, user_id, item_fix, is_ds=True)
 
     def deploy(self):
