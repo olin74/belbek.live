@@ -414,7 +414,7 @@ class Space:
                 for item_id in self.deep_space.keys():
                     self.send_item(bot, user_id, item_id, is_ds=True)
                     count += 1
-        else:
+        elif item_fix is None or type(item_fix) is int:
             # Формируем список необходимых категорий
 
             target_subcategory_list = self.categories[category].keys()
@@ -493,7 +493,7 @@ class Space:
             if len(w) > 2:
                 words.append(w)
 
-        if len(words) > 0:
+        if len(words) > 0 and (item_fix is None or type(item_fix) is int):
             if item_fix is None:
                 query = "SELECT * from labels"
                 self.cursor.execute(query)
@@ -512,6 +512,7 @@ class Space:
                 if is_contain(words, about):
                     self.send_item(bot, user_id, item_id)
                     count += 1
+
             if item_fix is None:
                 for item_id in self.deep_space.keys():
                     if check_ds(item_id):
@@ -531,6 +532,7 @@ class Space:
         if user_id is None:
             user_id = message.chat.id
         count = 0
+
         if item_fix is None:
             query = "SELECT * from labels WHERE start_time > 0"
             self.cursor.execute(query)
@@ -546,6 +548,8 @@ class Space:
             if is_date(start_time, mnight, date_code):
                 self.send_item(bot, user_id, item_id)
                 count += 1
+
+
         if item_fix is None:
             for item_id in self.deep_space.keys():
                 if self.deep_space.hexists(item_id, b'start_time'):
