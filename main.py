@@ -383,7 +383,7 @@ class Space:
     def research(self, bot, item_id, if_cat=True, if_text=True, if_date=True):
         for user_id in self.search.keys():
             s_string = self.search.get(user_id).decode('utf-8')
-            bot.send_message(DEBUG_ID,s_string)
+
             if if_cat and s_string == "cat":
                 self.do_search(bot, None, item_fix=item_id, user_id=user_id)
             if if_text and s_string[:5] == "text:":
@@ -398,13 +398,14 @@ class Space:
             user_id = message.chat.id
         count = 0
         keyboard = types.InlineKeyboardMarkup()
-
+        bot.send_message(DEBUG_ID, "search")
         if not self.users.hexists(user_id, "category"):
             return
         category = self.users.hget(user_id, "category").decode("utf-8")
         # Deep space
         if category == self.additional_scat[0]:
             if item_fix is not None:
+                bot.send_message(DEBUG_ID, "send")
                 self.send_item(bot, user_id, item_fix, is_ds=True)
             else:
                 for item_id in self.deep_space.keys():
