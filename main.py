@@ -110,7 +110,7 @@ class Space:
                           "Через 2 недели и далее": 5}
         self.renew_cats()
 
-        self.edit_items = ['Изменить', '📚', '❌', '🕰']
+        self.edit_items = ['📝 Описание', '📚 Направления', '❌', '🕰 Дата и время']
         self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятия 🕰"]
         self.limit_per_second = 5
         self.limit_counter = 0
@@ -234,6 +234,7 @@ class Space:
                     #  🆔 {row[0]}@{DS_ID}\n"
 
                 if is_edited:
+                    message_text = message_text + f"\n\nЧто бы изменить затею, нажмите одну из кнопок:"
                     item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                 callback_data=f"edit_{item_id}"))
                     if row[13] > 0:
@@ -808,7 +809,7 @@ class Space:
             if call.data[:4] == "done":
                 item = int(call.data.split('_')[1])
                 self.renew_cats()
-
+                self.users.hdel(user_id, b'cat_sel')
                 self.research(bot, user_id, if_text=False, if_date=False)
                 self.send_item(bot, user_id, item, is_edited=True,
                                message_id=int(self.users.hget(user_id, b'message_id')))
