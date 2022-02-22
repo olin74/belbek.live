@@ -24,8 +24,9 @@ FORMAT_DESC = "ДД.ММ.ГГ ЧЧ:ММ"
 def is_date(ts, date_code):
     day_sec = 24 * 60 * 60
     wd = time.localtime(ts).tm_wday
-    x = time.localtime()
-    mid_night = ts - x.tm_sec - x.tm_min * 60 - x.tm_hour * 60 * 60
+    cur_time = time.time()
+    x = time.localtime(cur_time)
+    mid_night = cur_time - x.tm_sec - x.tm_min * 60 - x.tm_hour * 60 * 60
     if date_code == 0:
         return ts < mid_night and (ts > mid_night - day_sec * 7)
     if date_code == 1:
