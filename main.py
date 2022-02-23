@@ -745,6 +745,7 @@ class Space:
                 self.deep_space.hdel(ds_id, b'photo')
             self.deep_space.hset(ds_id, b'text', item)
             self.research(bot, ds_id)
+            self.renew_cats()
             return
 
         # Обработка фото
@@ -777,8 +778,9 @@ class Space:
             if time.localtime().tm_mday != self.day_today:
                 self.day_today = time.localtime().tm_mday
                 for buser_id in self.search.keys():
-                    if self.search.get(buser_id).decode('utf-8') == "date:1":
-                        self.do_search_date(bot, None, 1, item_fix=None, user_id=int(buser_id))
+                    ss = self.search.get(buser_id).decode('utf-8')
+                    if ss[:5] == "date:":
+                        self.do_search_date(bot, None, int(ss[5]), item_fix=None, user_id=int(buser_id))
                 self.save_views()
             if message.chat.id == BOTCHAT_ID:
                 ds_message(message.text)
