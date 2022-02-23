@@ -1065,13 +1065,15 @@ class Space:
                     row = self.cursor.fetchone()
                     if row is not None:
                         self.check_th()
-                        bot.send_location(user_id, row[0], row[1])
+                        bot.send_location(user_id, row[0], row[1], reply_to_message_id=call.message.message_id)
                 else:
 
-                    if self.deep_space.exists(item_id) and self.deep_space.hexists(item_id, b'geo_lat'):
+                    if self.deep_space.exists(item_id) and\
+                            self.deep_space.hexists(item_id, b'geo_lat'):
                         self.check_th()
                         bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
-                                          float(self.deep_space.hget(item_id, b'geo_long')))
+                                          float(self.deep_space.hget(item_id, b'geo_long')),
+                                          reply_to_message_id=call.message.message_id)
 
         bot.polling()
         #  try:
