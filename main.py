@@ -216,7 +216,7 @@ class Space:
                 photo_id = self.deep_space.hget(item_id, b'photo').decode('utf-8')
             if self.deep_space.hexists(item_id, b'geo_lat'):
                 item_menu[0].append(types.InlineKeyboardButton(text="🗺 На карте",
-                                                               callback_data=f"loc_{item_id.decode('utf-8')}"))
+                                                               callback_data=f"loc_{item_id}"))
 
         else:
             query = "SELECT * from labels WHERE id=%s"
