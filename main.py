@@ -463,7 +463,7 @@ class Space:
                 self.send_item(bot, user_id, item_fix, is_ds=True)
             else:
                 for i_id in self.deep_space.keys():
-                    self.send_item(bot, i_id, item_id, is_ds=True)
+                    self.send_item(bot, user_id, i_id, is_ds=True)
                     cnt += 1
             return cnt
 
