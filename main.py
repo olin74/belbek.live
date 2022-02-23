@@ -263,7 +263,8 @@ class Space:
             if photo_id is None:
                 bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text, reply_markup=keyboard)
             else:
-                bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message_id)
+                bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message_id,
+                                         reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
             if photo_id is None:
@@ -350,7 +351,8 @@ class Space:
                     bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
                                           reply_markup=keyboard)
                 else:
-                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id)
+                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id,
+                                             reply_markup=keyboard)
             except Exception as error:
                 print("Error: ", error)
                 if photo_id is None:
@@ -371,7 +373,8 @@ class Space:
                     bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
                                           reply_markup=keyboard)
                 else:
-                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id)
+                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id,
+                                             reply_markup=keyboard)
             except Exception as error:
                 print("Error: ", error)
                 if photo_id is None:
@@ -704,6 +707,7 @@ class Space:
             query = "UPDATE labels SET photo = %s WHERE id = %s"
             self.cursor.execute(query, (None, item_id,))
             self.connection.commit()
+            self.send_item(bot, user_id, item_id, is_command=True)
             self.check_th()
             bot.send_message(user_id, f"Фото удалено, вы всегда можете его загрузить другое")
             try:
