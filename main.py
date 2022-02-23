@@ -83,18 +83,18 @@ class Space:
         '''
         0 id
         1 about
-        2 photos
-        3 subcategory 
-        4 tags
-        5 status_label
-        6 geo_lat
-        7 geo_long
-        8 views
-        9 author
-        10 zoom
-        11 time_added
-        12 username
-        13 start_time
+        2 subcategory 
+        3 tags
+        4 status_label
+        5 geo_lat
+        6 geo_long
+        7 views
+        8 author
+        9 zoom
+        10 time_added
+        11 username
+        12 start_time
+        13 photo
         '''
 
         # Подгрузка категорий
@@ -155,7 +155,7 @@ class Space:
             row = self.cursor.fetchone()
             if row is None:
                 break
-            label_sub_list = row[3]
+            label_sub_list = row[2]
             for cat, scat in self.categories.items():
                 yes_cat = False
                 for uscat in scat.keys():
@@ -165,8 +165,8 @@ class Space:
                             yes_cat = True
                 if yes_cat:
                     self.cat_stat[cat] += 1
-            if row[13] > 0:
-                check_date(row[13])
+            if row[12] > 0:
+                check_date(row[12])
         for ds_id in self.deep_space.keys():
             if self.deep_space.hexists(ds_id, b'start_time'):
                 check_date(int(self.deep_space.hget(ds_id, b'start_time')))
@@ -202,7 +202,7 @@ class Space:
                 message_text = message_text + f"\n{self.additional_scat[0]}"
             # f"🆔 {item_id.decode('utf-8')}\n" \
             if self.deep_space.hexists(item_id, b'photo'):
-                photo_id = int(self.deep_space.hget(item_id, b'photo'))
+                photo_id = self.deep_space.hget(item_id, b'photo').decode('utf-8')
         else:
             query = "SELECT * from labels WHERE id=%s"
             cursor = self.connection.cursor()
@@ -210,35 +210,35 @@ class Space:
             row = cursor.fetchone()
             message_text = "Удалено"
             if row is not None:
-                if type(row[2]) is list:
-                    photo_id = row[2][0]
+                if type(row[13]) is list:
+                    photo_id = row[13]
                 if is_command:
                     message_text = f"{item_id}@{DS_ID}"
-                    if row[13] > 0:
-                        start_time = datetime.datetime.fromtimestamp(row[13])
+                    if row[12] > 0:
+                        start_time = datetime.datetime.fromtimestamp(row[12])
                         message_text = message_text + f" {start_time.strftime(FORMAT_TIME)}"
                     message_text = message_text + f" {row[1]}"
                 else:
                     message_text = row[1]
-                    vs = int(row[8])
+                    vs = int(row[7])
                     if not is_edited:
                         inc_views(item_id)
                     if self.views.exists(item_id):
                         vs += int(self.views.get(item_id))
                     message_text = f"📝 {message_text}\n👀 {vs}"
-                    if row[13] > 0:
-                        start_time = datetime.datetime.fromtimestamp(row[13])
+                    if row[12] > 0:
+                        start_time = datetime.datetime.fromtimestamp(row[12])
 
                         message_text = message_text + f"\n🕰 {start_time.strftime(FORMAT_TIME)}"
                     else:
-                        message_text = message_text + f"\n📚 {','.join(row[3])}"
+                        message_text = message_text + f"\n📚 {','.join(row[2])}"
                     #  🆔 {row[0]}@{DS_ID}\n"
 
                 if is_edited:
                     message_text = message_text + f"\n\nЧто бы изменить затею, нажмите одну из кнопок под сообщением"
                     item_menu[0].append(types.InlineKeyboardButton(text=self.edit_items[0],
                                                                    callback_data=f"edit_{item_id}"))
-                    if row[13] > 0:
+                    if row[12] > 0:
                         item_menu[0].append(types.InlineKeyboardButton(text=self.edit_items[3],
                                                                        callback_data=f"time_{item_id}"))
                     else:
@@ -414,7 +414,7 @@ class Space:
             if row is None:
                 break
             item_id = row[0]
-            if user_id == row[9]:
+            if user_id == row[8]:
                 self.send_item(bot, user_id, item_id, is_edited=True)
                 count += 1
 
@@ -466,7 +466,7 @@ class Space:
                     break
 
                 item_id = row[0]
-                label_sub_list = row[3]
+                label_sub_list = row[2]
                 if len(set(label_sub_list).intersection(set(target_subcategory_list))) > 0:
                     self.send_item(bot, user_id, item_id)
                     count += 1
@@ -538,8 +538,8 @@ class Space:
                         break
                     item_id = row[0]
                     about = row[1]
-                    if row[13] > 0:
-                        start_time = datetime.datetime.fromtimestamp(row[13])
+                    if row[12] > 0:
+                        start_time = datetime.datetime.fromtimestamp(row[12])
                         about = f"{start_time.strftime(FORMAT_TIME)} " + about
                     if is_contain(words, about):
                         self.send_item(bot, user_id, item_id)
@@ -574,7 +574,7 @@ class Space:
             if row is None:
                 break
             item_id = row[0]
-            start_time = int(row[13])
+            start_time = int(row[12])
             if is_date(start_time, date_code):
                 self.send_item(bot, user_id, item_id)
                 count += 1
@@ -701,8 +701,8 @@ class Space:
         def no_pic(message):
             user_id = message.chat.id
             item_id = int(self.users.hget(user_id, b'item'))
-            query = "UPDATE labels SET photos = [] WHERE id = %s"
-            self.cursor.execute(query, (item_id,))
+            query = "UPDATE labels SET photo = %s WHERE id = %s"
+            self.cursor.execute(query, (None, item_id,))
             self.connection.commit()
             self.check_th()
             bot.send_message(user_id, f"Фото удалено, вы всегда можете его загрузить другое")
@@ -753,7 +753,7 @@ class Space:
             if int(self.users.hget(user_id, b'edit')) == 3:
                 self.users.hset(user_id, b'edit', 0)
                 item_id = int(self.users.hget(user_id, b'item'))
-                query = "UPDATE labels SET photos = [%s] WHERE id = %s"
+                query = "UPDATE labels SET photo = %s WHERE id = %s"
                 self.cursor.execute(query, (message.photo[0].file_id, item_id))
                 self.connection.commit()
                 self.send_item(bot, user_id, item_id, is_command=True)
