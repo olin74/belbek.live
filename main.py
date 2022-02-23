@@ -565,22 +565,22 @@ class Space:
         if user_id is None:
             user_id = message.chat.id
         count = 0
-
-        if item_fix is None:
-            query = "SELECT * from labels WHERE start_time > 0"
-            self.cursor.execute(query)
-        else:
-            query = "SELECT * from labels WHERE id = %s AND start_time > 0"
-            self.cursor.execute(query, (item_fix,))
-        while 1:
-            row = self.cursor.fetchone()
-            if row is None:
-                break
-            item_id = row[0]
-            start_time = int(row[12])
-            if is_date(start_time, date_code):
-                self.send_item(bot, user_id, item_id)
-                count += 1
+        if item_fix is None or type(item_fix) is int:
+            if item_fix is None:
+                query = "SELECT * from labels WHERE start_time > 0"
+                self.cursor.execute(query)
+            else:
+                query = "SELECT * from labels WHERE id = %s AND start_time > 0"
+                self.cursor.execute(query, (item_fix,))
+            while 1:
+                row = self.cursor.fetchone()
+                if row is None:
+                    break
+                item_id = row[0]
+                start_time = int(row[12])
+                if is_date(start_time, date_code):
+                    self.send_item(bot, user_id, item_id)
+                    count += 1
 
         if item_fix is None:
             for item_id in self.deep_space.keys():
