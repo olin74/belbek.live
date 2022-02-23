@@ -210,7 +210,7 @@ class Space:
             row = cursor.fetchone()
             message_text = "Удалено"
             if row is not None:
-                if len(row[2]) > 0:
+                if type(row[2]) is list:
                     photo_id = row[2][0]
                 if is_command:
                     message_text = f"{item_id}@{DS_ID}"
