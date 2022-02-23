@@ -113,15 +113,15 @@ class Space:
                           "Через 2 недели и далее": 5}
         self.renew_cats()
 
-        self.edit_items = ['📝 Описание', '📚 Направления', '❌ Удалить', '🕰 Дата и время']
-        self.additional_scat = ['🛸 Deep Space 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятия 🕰"]
+        self.edit_items = ['📝 Описание', '📚 Направления', '❌ Удалить', '🕰 Дата и время', '📸 Фото', '🗺 Карта']
+        self.additional_scat = ['🛸 Другие площадки 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятия 🕰"]
         self.limit_per_second = 5
         self.limit_counter = 0
         self.last_send_time = int(time.time())
         self.hellow_message = f"Канал поддержки: https://t.me/belbekspace\n" \
                               f"Такси и доставка: @BelbekTaxiBot\n" \
                               f"Для нового поиска отправьте любое слово, дату или фразу\n" \
-                              f"Для остановки поиска - /stop"
+                              f"Бот будет искать и присылать затеи пока не увидит команду /stop"
         self.day_today = -1
 
     def save_views(self):
@@ -190,7 +190,8 @@ class Space:
             self.views.set(iid, ovs + 1)
             return int(self.views.get(iid))
 
-        item_menu = []
+        item_menu = [[], []]
+        photo_id = None
         if is_ds:
             message_text = f"📝 {self.deep_space.hget(item_id, b'text').decode('utf-8')}"
             if self.deep_space.hexists(item_id, b'start_time'):
@@ -200,6 +201,8 @@ class Space:
             else:
                 message_text = message_text + f"\n{self.additional_scat[0]}"
             # f"🆔 {item_id.decode('utf-8')}\n" \
+            if self.deep_space.hexists(item_id, b'photo'):
+                photo_id = int(self.deep_space.hget(item_id, b'photo'))
         else:
             query = "SELECT * from labels WHERE id=%s"
             cursor = self.connection.cursor()
@@ -207,7 +210,8 @@ class Space:
             row = cursor.fetchone()
             message_text = "Удалено"
             if row is not None:
-
+                if len(row[2]) > 0:
+                    photo_id = row[2][0]
                 if is_command:
                     message_text = f"{item_id}@{DS_ID}"
                     if row[13] > 0:
@@ -232,31 +236,40 @@ class Space:
 
                 if is_edited:
                     message_text = message_text + f"\n\nЧто бы изменить затею, нажмите одну из кнопок под сообщением"
-                    item_menu.append(types.InlineKeyboardButton(text=self.edit_items[0],
-                                                                callback_data=f"edit_{item_id}"))
+                    item_menu[0].append(types.InlineKeyboardButton(text=self.edit_items[0],
+                                                                   callback_data=f"edit_{item_id}"))
                     if row[13] > 0:
-                        item_menu.append(types.InlineKeyboardButton(text=self.edit_items[3],
-                                                                    callback_data=f"time_{item_id}"))
+                        item_menu[0].append(types.InlineKeyboardButton(text=self.edit_items[3],
+                                                                       callback_data=f"time_{item_id}"))
                     else:
-                        item_menu.append(types.InlineKeyboardButton(text=self.edit_items[1],
-                                                                    callback_data=f"cat_{item_id}"))
-                    item_menu.append(types.InlineKeyboardButton(text=self.edit_items[2],
-                                                                callback_data=f"del_{item_id}"))
+                        item_menu[0].append(types.InlineKeyboardButton(text=self.edit_items[1],
+                                                                       callback_data=f"cat_{item_id}"))
+                    item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[4],
+                                                                   callback_data=f"pic_{item_id}"))
+                    # item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[5],
+                    #                                                callback_data=f"map_{item_id}"))
+                    item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[2],
+                                                                   callback_data=f"del_{item_id}"))
             elif is_command:
                 message_text = f"{item_id}@{DS_ID}"
 
         keyboard = types.InlineKeyboardMarkup()
-        keyboard.row(*item_menu)
+        keyboard.row(*item_menu[0])
+        keyboard.row(*item_menu[1])
         self.check_th()
         if is_command:
             user_id = BOTCHAT_ID
         try:
-            if message_id is None:
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
-            else:
+            if photo_id is None:
                 bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text, reply_markup=keyboard)
+            else:
+                bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message_id)
         except Exception as error:
             print("Error: ", error)
+            if photo_id is None:
+                bot.send_message(user_id, message_text, reply_markup=keyboard)
+            else:
+                bot.send_photo(user_id, photo_id, message_text, reply_markup=keyboard)
 
     # Обработчик всех состояний меню
     def go_menu(self, bot, message, menu_id):
@@ -306,7 +319,9 @@ class Space:
             self.cursor.execute(query, (item_id,))
             row = self.cursor.fetchone()
             selected_cats = row[0]
-
+            photo_id = None
+            if len(message.photo) > 0:
+                photo_id = message.photo[0].file_id
             keyboard_line = []
             message_text = f"Выберите одно или несколько направлений:\n" \
                            f"Выбрано {len(selected_cats)}\n"
@@ -330,26 +345,39 @@ class Space:
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
                                  callback_data=f"done_{item_id}"))
             keyboard.row(*keyboard_line)
-
             try:
-                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
-                                      text=message_text, reply_markup=keyboard)
+                if photo_id is None:
+                    bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
+                                          reply_markup=keyboard)
+                else:
+                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id)
             except Exception as error:
                 print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
+                if photo_id is None:
+                    bot.send_message(user_id, message_text, reply_markup=keyboard)
+                else:
+                    bot.send_photo(user_id, photo_id, message_text, reply_markup=keyboard)
 
         elif menu_id == 4:  # Подтверждение удаления
             message_text = "Вы действительно хотите ❌ убрать ❌ эту затею из нашего космоса?"
             keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"cdel_label"))
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
                                                     callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
-
+            photo_id = None
+            if len(message.photo) > 0:
+                photo_id = message.photo[0].file_id
             try:
-                bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
-                                      text=message_text, reply_markup=keyboard)
+                if photo_id is None:
+                    bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
+                                          reply_markup=keyboard)
+                else:
+                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id)
             except Exception as error:
                 print("Error: ", error)
-                bot.send_message(user_id, message_text, reply_markup=keyboard)
+                if photo_id is None:
+                    bot.send_message(user_id, message_text, reply_markup=keyboard)
+                else:
+                    bot.send_photo(user_id, photo_id, message_text, reply_markup=keyboard)
         elif menu_id == 5:  # Редактирование времени итема
             now_time = datetime.datetime.fromtimestamp(int(time.time()))
             message_text = f"Пришлите дату и время меоприятия (в формате {FORMAT_DESC}), например:\n" \
@@ -368,6 +396,12 @@ class Space:
             except Exception as error:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
+        elif menu_id == 7:  # Редактирование фото
+            message_text = f"Пришлите фотографию и она будет прикреплена к вашей затее\n" \
+                           f"Что бы убрать фото, отправьте /no_pic\n" \
+                           f"Для отмены - /cancel"
+            self.check_th()
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
 
     def my_items(self, bot, message):
         user_id = message.chat.id
@@ -387,7 +421,6 @@ class Space:
     def research(self, bot, item_id, if_cat=True, if_text=True, if_date=True):
         for user_id in self.search.keys():
             s_string = self.search.get(user_id).decode('utf-8')
-
             if if_cat and s_string == "cat":
                 self.do_search(bot, None, item_fix=item_id, user_id=int(user_id))
             if if_text and s_string[:5] == "text:":
@@ -443,19 +476,18 @@ class Space:
             if category != self.additional_scat[0] and self.users.hexists(user_id, "subcategory"):
                 sub_c = self.users.hget(user_id, "subcategory").decode('utf-8')
                 message_text = message_text + f"\n{sub_c}"
-            message_text = message_text + f"\nНайдено {count} затей:"
+            message_text = message_text + f"\nНайдено затей: {count}"
             try:
                 self.check_th()
                 bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                       text=message_text, reply_markup=keyboard)
             except Exception as error:
+                bot.send_message(chat_id=user_id, text=message_text, reply_markup=keyboard)
                 print("Error: ", error)
             after_message = self.hellow_message
             self.check_th()
             bot.send_message(user_id, after_message)
             self.search.set(user_id, "cat")
-
-        # Формирование списка поиска по словам
 
     # Формирование списка поиска из текста
     def do_search_text(self, bot, message, text, item_fix=None, user_id=None):
@@ -560,7 +592,7 @@ class Space:
                 if date_code == code:
                     message_text = message_text + ds
                     break
-            message_text = message_text + f"\nНайдено {count} затей:"
+            message_text = message_text + f"\nНайдено затей: {count}"
             try:
                 bot.edit_message_text(chat_id=user_id, message_id=message.message_id,
                                       text=message_text, reply_markup=keyboard)
@@ -620,10 +652,12 @@ class Space:
 
         @bot.message_handler(commands=['my_items'])
         def my_items(message):
+            self.users.hset(message.chat.id, b'edit', 0)
             self.my_items(bot, message)
 
         @bot.message_handler(commands=['search'])
         def browse(message):
+            self.users.hset(message.chat.id, b'edit', 0)
             self.go_menu(bot, message, 1)
 
         # Отмена ввода
@@ -639,6 +673,7 @@ class Space:
         @bot.message_handler(commands=['stop'])
         def stop_search(message):
             user_id = message.chat.id
+            self.users.hset(message.chat.id, b'edit', 0)
             if self.search.exists(user_id):
                 self.search.delete(user_id)
                 self.check_th()
@@ -656,6 +691,21 @@ class Space:
             self.check_th()
             bot.send_message(user_id, f"Вермя начала затеи удалено, что бы вернуть время,"
                                       f" следует отметить затею как {self.additional_scat[3]}")
+            try:
+                bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+            finally:
+                self.send_item(bot, user_id, item_id, is_edited=True)
+
+        # Удаление фото
+        @bot.message_handler(commands=['no_pic'])
+        def no_pic(message):
+            user_id = message.chat.id
+            item_id = int(self.users.hget(user_id, b'item'))
+            query = "UPDATE labels SET photos = [] WHERE id = %s"
+            self.cursor.execute(query, (item_id,))
+            self.connection.commit()
+            self.check_th()
+            bot.send_message(user_id, f"Фото удалено, вы всегда можете его загрузить другое")
             try:
                 bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
             finally:
@@ -696,9 +746,23 @@ class Space:
         # Обработка фото
         @bot.message_handler(content_types=['photo'])
         def message_photo(message):
+            user_id = message.chat.id
             if message.chat.id == BOTCHAT_ID:
                 ds_message(message.caption, message.photo[0].file_id)
                 return
+            if int(self.users.hget(user_id, b'edit')) == 3:
+                self.users.hset(user_id, b'edit', 0)
+                item_id = int(self.users.hget(user_id, b'item'))
+                query = "UPDATE labels SET photos = [%s] WHERE id = %s"
+                self.cursor.execute(query, (message.photo[0].file_id, item_id))
+                self.connection.commit()
+                self.send_item(bot, user_id, item_id, is_command=True)
+                self.check_th()
+                bot.send_message(user_id, "Фото затеи обновлено")
+                try:
+                    bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+                finally:
+                    self.send_item(bot, user_id, item_id, is_edited=True)
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
@@ -902,6 +966,12 @@ class Space:
 
             if call.data == "events":
                 self.go_menu(bot, call.message, 6)
+
+            if call.data[:3] == "pic":
+                item_id = int(call.data.split('_')[1])
+                self.users.hset(user_id, b'item', item_id)
+                self.users.hset(user_id, b'edit', 3)
+                self.go_menu(bot, call.message, 7)
 
         bot.polling()
         #  try:
