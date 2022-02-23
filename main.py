@@ -11,6 +11,7 @@ from telebot import types
 import time
 import datetime
 import os
+import re
 
 # Устанавливаем константы
 BOTCHAT_ID = -1001508419451  # Айди чата для ботов
@@ -105,6 +106,7 @@ class Space:
             for cat, scat in cat_dict.items():
                 self.categories[cat] = dict.fromkeys(scat, 0)
         self.events_count = {}
+        self.events_total = 0
         self.date_code = {"Последняя неделя": 0,
                           "Сегодня": 1,
                           "Завтра": 2,
@@ -140,15 +142,20 @@ class Space:
 
     def renew_cats(self):
         def check_date(date_event):
+            res = False
             for evnt, code in self.date_code.items():
                 if is_date(date_event, code):
                     self.events_count[evnt] += 1
+                    res = True
+            return res
+
         for cat, ucats in self.categories.items():
             for ucat in ucats.keys():
                 self.categories[cat][ucat] = 0
             self.cat_stat[cat] = 0
         for evt in self.date_code.keys():
             self.events_count[evt] = 0
+        self.events_total = 0
         query = "SELECT * from labels"
         self.cursor.execute(query)
         while 1:
@@ -169,7 +176,8 @@ class Space:
                 check_date(row[12])
         for ds_id in self.deep_space.keys():
             if self.deep_space.hexists(ds_id, b'start_time'):
-                check_date(int(self.deep_space.hget(ds_id, b'start_time')))
+                if check_date(int(self.deep_space.hget(ds_id, b'start_time'))):
+                    self.events_total += 1
 
     def check_th(self):
         while 1:
@@ -203,6 +211,9 @@ class Space:
             # f"🆔 {item_id.decode('utf-8')}\n" \
             if self.deep_space.hexists(item_id, b'photo'):
                 photo_id = self.deep_space.hget(item_id, b'photo').decode('utf-8')
+            if self.deep_space.hexists(user_id, 'geo_lat'):
+                item_menu[0].append(types.InlineKeyboardButton(text="🗺 На карте",
+                                                               callback_data=f"loc_{item_id}"))
         else:
             query = "SELECT * from labels WHERE id=%s"
             cursor = self.connection.cursor()
@@ -250,6 +261,10 @@ class Space:
                     #                                                callback_data=f"map_{item_id}"))
                     item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                    callback_data=f"del_{item_id}"))
+                elif not is_command and type(row[5]) is float:
+                    item_menu[0].append(types.InlineKeyboardButton(text="🗺 На карте",
+                                                                   callback_data=f"loc_{item_id}"))
+
             elif is_command:
                 message_text = f"{item_id}@{DS_ID}"
 
@@ -296,7 +311,8 @@ class Space:
                                                         callback_data=f"ucat_{cat}"))
             add_row_text = f"{self.additional_scat[0]} ({len(self.deep_space.keys())})"
             keyboard.row(types.InlineKeyboardButton(text=add_row_text, callback_data=f"ds_cat"))
-            keyboard.row(types.InlineKeyboardButton(text=self.additional_scat[3], callback_data=f"events"))
+            keyboard.row(types.InlineKeyboardButton(text=f"{self.additional_scat[3]} ({self.events_total})",
+                                                    callback_data=f"events"))
             message_text = "Выберите сферу деятельности:"
             bot.send_message(user_id, message_text, reply_markup=keyboard)
 
@@ -715,6 +731,7 @@ class Space:
             finally:
                 self.send_item(bot, user_id, item_id, is_edited=True)
 
+        # Обработка сообщений из deep space
         def ds_message(m_text, photo_id=None):
             end_pos = m_text.find(' ')
             ds_id = m_text[:end_pos]
@@ -734,11 +751,25 @@ class Space:
             except ValueError:
                 if self.deep_space.exists(ds_id):
                     self.deep_space.hdel(ds_id, b'start_time')
+            end_pos = m_text.find(' ', start_pos)
+            end_pos = m_text.find(' ', end_pos + 1)
+            latitude = None
+            longitude = None
+            if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", m_text[start_pos:end_pos]):
+                latitude = float(m_text[start_pos:end_pos].split(',')[0])
+                longitude = float(m_text[start_pos:end_pos].split(',')[1])
+                start_pos = end_pos + 1
             item = m_text[start_pos:]
             if len(item) == 0:
                 return
             if start_time is not None:
                 self.deep_space.hset(ds_id, b'start_time', start_time)
+            if latitude is not None:
+                self.deep_space.hset(ds_id, b'geo_lat', latitude)
+                self.deep_space.hset(ds_id, b'geo_long', longitude)
+            else:
+                self.deep_space.hdel(ds_id, b'geo_lat')
+                self.deep_space.hdel(ds_id, b'geo_long')
             if photo_id is not None:
                 self.deep_space.hset(ds_id, b'photo', photo_id)
             else:
@@ -774,6 +805,7 @@ class Space:
         def message_text(message):
             user_id = message.chat.id
             cur_time = int(time.time())
+            self.users.hset(user_id, b'last_login', cur_time)
             # Check new day
             if time.localtime().tm_mday != self.day_today:
                 self.day_today = time.localtime().tm_mday
@@ -785,7 +817,7 @@ class Space:
             if message.chat.id == BOTCHAT_ID:
                 ds_message(message.text)
                 return
-            self.users.hset(user_id, b'last_login', cur_time)
+
             if not self.users.hexists(user_id, b'edit'):
                 bot.send_message(user_id, "Бот обновился, нажмите /start")
                 return
@@ -978,6 +1010,17 @@ class Space:
                 self.users.hset(user_id, b'item', item_id)
                 self.users.hset(user_id, b'edit', 3)
                 self.go_menu(bot, call.message, 7)
+
+            if call.data[:3] == "loc":
+                item_id = call.data[4:]
+                if item_id.find('@') < 0:
+                    query = "SELECT geo_lat, geo_long FROM labels WHERE id = %s"
+                    self.cursor.execute(query, (int(item_id),))
+                    row = self.cursor.fetchone()
+                    bot.send_location(user_id, row[0], row[1])
+                else:
+                    bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
+                                      float(self.deep_space.hget(item_id, b'geo_long')))
 
         bot.polling()
         #  try:
