@@ -214,6 +214,7 @@ class Space:
             if self.deep_space.hexists(user_id, 'geo_lat'):
                 item_menu[0].append(types.InlineKeyboardButton(text="🗺 На карте",
                                                                callback_data=f"loc_{item_id}"))
+
         else:
             query = "SELECT * from labels WHERE id=%s"
             cursor = self.connection.cursor()
@@ -228,6 +229,8 @@ class Space:
                     if row[12] > 0:
                         start_time = datetime.datetime.fromtimestamp(row[12])
                         message_text = message_text + f" {start_time.strftime(FORMAT_TIME)}"
+                    if type(row[5]) is float:
+                        message_text = message_text + f" {row[5]}, {row[6]}"
                     message_text = message_text + f" {row[1]}"
                 else:
                     message_text = row[1]
@@ -1017,8 +1020,10 @@ class Space:
                     query = "SELECT geo_lat, geo_long FROM labels WHERE id = %s"
                     self.cursor.execute(query, (int(item_id),))
                     row = self.cursor.fetchone()
+                    self.check_th()
                     bot.send_location(user_id, row[0], row[1])
                 else:
+                    self.check_th()
                     bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
                                       float(self.deep_space.hget(item_id, b'geo_long')))
 
