@@ -1063,12 +1063,15 @@ class Space:
                     query = "SELECT geo_lat, geo_long FROM labels WHERE id = %s"
                     self.cursor.execute(query, (int(item_id),))
                     row = self.cursor.fetchone()
-                    self.check_th()
-                    bot.send_location(user_id, row[0], row[1])
+                    if row is not None:
+                        self.check_th()
+                        bot.send_location(user_id, row[0], row[1])
                 else:
-                    self.check_th()
-                    bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
-                                      float(self.deep_space.hget(item_id, b'geo_long')))
+
+                    if self.deep_space.exists(item_id) and self.deep_space.hexists(item_id, b'geo_lat'):
+                        self.check_th()
+                        bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
+                                          float(self.deep_space.hget(item_id, b'geo_long')))
 
         bot.polling()
         #  try:
