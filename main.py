@@ -321,7 +321,7 @@ class Space:
             row = self.cursor.fetchone()
             selected_cats = row[0]
             photo_id = None
-            if len(message.photo) > 0:
+            if type(message.photo) is list:
                 photo_id = message.photo[0].file_id
             keyboard_line = []
             message_text = f"Выберите одно или несколько направлений:\n" \
@@ -366,7 +366,7 @@ class Space:
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
                                                     callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
             photo_id = None
-            if len(message.photo) > 0:
+            if type(message.photo) is list:
                 photo_id = message.photo[0].file_id
             try:
                 if photo_id is None:
