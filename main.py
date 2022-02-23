@@ -107,6 +107,7 @@ class Space:
                 self.categories[cat] = dict.fromkeys(scat, 0)
         self.events_count = {}
         self.events_total = 0
+        self.total = 0
         self.date_code = {"Последняя неделя": 0,
                           "Сегодня": 1,
                           "Завтра": 2,
@@ -156,12 +157,14 @@ class Space:
         for evt in self.date_code.keys():
             self.events_count[evt] = 0
         self.events_total = 0
+        self.total = len(self.deep_space.keys())
         query = "SELECT * from labels"
         self.cursor.execute(query)
         while 1:
             row = self.cursor.fetchone()
             if row is None:
                 break
+            self.total += 1
             label_sub_list = row[2]
             for cat, scat in self.categories.items():
                 yes_cat = False
@@ -316,6 +319,8 @@ class Space:
             keyboard.row(types.InlineKeyboardButton(text=add_row_text, callback_data=f"ds_cat"))
             keyboard.row(types.InlineKeyboardButton(text=f"{self.additional_scat[3]} ({self.events_total})",
                                                     callback_data=f"events"))
+            keyboard.row(types.InlineKeyboardButton(text=f"{self.additional_scat[1]} ({self.total})",
+                                                    callback_data=f"all"))
             message_text = "Выберите сферу деятельности:"
             bot.send_message(user_id, message_text, reply_markup=keyboard)
 
@@ -452,6 +457,16 @@ class Space:
 
     # Формирование списка поиска из категорий
     def do_search(self, bot, message, item_fix=None, user_id=None):
+        def send_ds():
+            cnt = 0
+            if item_fix is not None:
+                self.send_item(bot, user_id, item_fix, is_ds=True)
+            else:
+                for i_id in self.deep_space.keys():
+                    self.send_item(bot, i_id, item_id, is_ds=True)
+                    cnt += 1
+            return cnt
+
         if user_id is None:
             user_id = message.chat.id
         count = 0
@@ -461,12 +476,22 @@ class Space:
         category = self.users.hget(user_id, "category").decode("utf-8")
         # Deep space
         if category == self.additional_scat[0]:
-            if item_fix is not None:
-                self.send_item(bot, user_id, item_fix, is_ds=True)
+            count = send_ds()
+        elif category == self.additional_scat[1]:
+            count = send_ds()
+            if item_fix is None:
+                query = "SELECT * from labels"
+                self.cursor.execute(query)
             else:
-                for item_id in self.deep_space.keys():
-                    self.send_item(bot, user_id, item_id, is_ds=True)
-                    count += 1
+                query = "SELECT * from labels WHERE id = %s"
+                self.cursor.execute(query, (item_fix,))
+            while 1:
+                row = self.cursor.fetchone()
+                if row is None:
+                    break
+                item_id = row[0]
+                self.send_item(bot, user_id, item_id)
+                count += 1
         elif item_fix is None or type(item_fix) is int:
             # Формируем список необходимых категорий
 
@@ -481,6 +506,7 @@ class Space:
             else:
                 query = "SELECT * from labels WHERE id = %s"
                 self.cursor.execute(query, (item_fix,))
+
             while 1:
                 row = self.cursor.fetchone()
 
@@ -932,6 +958,11 @@ class Space:
                 self.users.hdel(user_id, b'subcategory')
                 self.users.hset(user_id, b'category', category)
                 self.go_menu(bot, call.message, 2)
+            # Выбираем все сферы для поиска
+            if call.data == "all":
+                self.users.hset(user_id, b'category', self.additional_scat[1])
+                self.do_search(bot, call.message)
+
             # Выбран глубокий космос
             if call.data == "ds_cat":
                 self.users.hset(user_id, b'category', self.additional_scat[0])
