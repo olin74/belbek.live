@@ -281,6 +281,8 @@ class Space:
         if is_command:
             user_id = BOTCHAT_ID
         try:
+            message_id = message_id + 1
+            message_id = message_id - 1
             if photo_id is None:
                 bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text, reply_markup=keyboard)
             else:
@@ -469,6 +471,8 @@ class Space:
 
         if user_id is None:
             user_id = message.chat.id
+        cur_time = int(time.time())
+        self.users.hset(user_id, b'last_login', cur_time)
         count = 0
         keyboard = types.InlineKeyboardMarkup()
         if not self.users.hexists(user_id, "category"):
@@ -479,19 +483,20 @@ class Space:
             count = send_ds()
         elif category == self.additional_scat[1]:
             count = send_ds()
-            if item_fix is None:
-                query = "SELECT * from labels"
-                self.cursor.execute(query)
-            else:
-                query = "SELECT * from labels WHERE id = %s"
-                self.cursor.execute(query, (item_fix,))
-            while 1:
-                row = self.cursor.fetchone()
-                if row is None:
-                    break
-                item_id = row[0]
-                self.send_item(bot, user_id, item_id)
-                count += 1
+            if item_fix is None or type(item_fix) is int:
+                if item_fix is None:
+                    query = "SELECT * from labels"
+                    self.cursor.execute(query)
+                else:
+                    query = "SELECT * from labels WHERE id = %s"
+                    self.cursor.execute(query, (item_fix,))
+                while 1:
+                    row = self.cursor.fetchone()
+                    if row is None:
+                        break
+                    item_id = row[0]
+                    self.send_item(bot, user_id, item_id)
+                    count += 1
         elif item_fix is None or type(item_fix) is int:
             # Формируем список необходимых категорий
 
@@ -565,7 +570,8 @@ class Space:
         if user_id is None:
             user_id = message.chat.id
         count = 0
-
+        cur_time = int(time.time())
+        self.users.hset(user_id, b'last_login', cur_time)
         pre_words = text.split(' ')
         words = []
         for w in pre_words:
@@ -609,6 +615,8 @@ class Space:
     def do_search_date(self, bot, message, date_code, item_fix=None, user_id=None):
         if user_id is None:
             user_id = message.chat.id
+        cur_time = int(time.time())
+        self.users.hset(user_id, b'last_login', cur_time)
         count = 0
         if item_fix is None or type(item_fix) is int:
             if item_fix is None:
@@ -834,14 +842,18 @@ class Space:
         def message_text(message):
             user_id = message.chat.id
             cur_time = int(time.time())
-            self.users.hset(user_id, b'last_login', cur_time)
+            x = time.localtime(cur_time)
+            mid_night = cur_time - x.tm_sec - x.tm_min * 60 - x.tm_hour * 60 * 60
             # Check new day
             if time.localtime().tm_mday != self.day_today:
                 self.day_today = time.localtime().tm_mday
                 for buser_id in self.search.keys():
                     ss = self.search.get(buser_id).decode('utf-8')
-                    if ss[:5] == "date:":
-                        self.do_search_date(bot, None, int(ss[5]), item_fix=None, user_id=int(buser_id))
+                    if self.users.hexists(buser_id, b'last_login'):
+                        login_time = int(self.users.hget(buser_id, b'last_login'))
+                        if login_time < mid_night:
+                            if ss[:5] == "date:":
+                                self.do_search_date(bot, None, int(ss[5]), item_fix=None, user_id=int(buser_id))
                 self.save_views()
             if message.chat.id == BOTCHAT_ID:
                 ds_message(message.text)
@@ -875,7 +887,7 @@ class Space:
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
                             "VALUES (%s, %s, %s, %s, %s)"
-                    self.cursor.execute(query, (about, [], user_id, cur_time, message.chat.username))
+                    self.cursor.execute(query, (about, [], user_id, int(time.time()), message.chat.username))
 
                     self.connection.commit()
                     query = "SELECT LASTVAL()"
@@ -913,9 +925,9 @@ class Space:
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
             user_id = call.message.chat.id
-            cur_time = int(time.time())
+
             bot.answer_callback_query(call.id)
-            self.users.hset(user_id, b'last_login', cur_time)
+
             self.users.hset(user_id, b'message_id', call.message.message_id)  # Фиксируем ID сообщения
             if not self.users.hexists(user_id, b'edit'):
                 bot.send_message(user_id, "Бот обновился, нажмите /start")
