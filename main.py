@@ -876,6 +876,7 @@ class Space:
         # Реакция на отправление геопозиции
         @bot.message_handler(content_types=['location'])
         def message_geo(message):
+            user_id = message.chat.id
             if int(self.users.hget(user_id, b'edit')) == 4:
                 location = {'longitude': message.location.longitude, 'latitude': message.location.latitude}
                 self.go_location(bot, message, location)
@@ -991,14 +992,14 @@ class Space:
                 if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
                     location = {'latitude': float(message.text.split(',')[0]),
                                 'longitude': float(message.text.split(',')[1])}
-                else
+                else:
                     point_name, location = self.get_point(message.text)
 
-                if point_name is Not None:
-                    message_text = f"Выбрано село {point_name}. " \
+                if point_name is not None:
+                    m_text = f"Выбрано село {point_name}. " \
                                    f"Координаты: {location['latitude']}, {location['longitude']}"
                     self.check_th()
-                    bot.send_message(user_id, message_text)
+                    bot.send_message(user_id, m_text)
 
                 self.go_location(bot, message, location)
 
