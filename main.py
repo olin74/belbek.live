@@ -303,13 +303,14 @@ class Space:
 
         if menu_id == 0:  # Редактирование и создание итема
 
-            message_text = f"Пришлите описание затеи (лимит {ABOUT_LIMIT} символов), укажите контакты"
+            message_text = f"Пришлите описание затеи (лимит {ABOUT_LIMIT} символов),\n‼️ укажите контакты ‼️"
             if message.chat.username is not None:
                 message_text = message_text + f" (например, ссылку на свой телеграмм:" \
                                               f" https://t.me/{message.chat.username})"
-            message_text = message_text + f". Для отмены введите /cancel"
+            message_text = message_text + f"\nДля отмены введите /cancel"
             self.check_th()
-            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
+                             reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
 
         elif menu_id == 1:  # Выбор сферы для поиска
             self.users.hdel(user_id, "category")
@@ -413,7 +414,8 @@ class Space:
                            f"{now_time.strftime(FORMAT_TIME)}\nЧто бы удалить время введите /no_time\n" \
                            f"Для отмены - /cancel"
             self.check_th()
-            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
+                             reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
         elif menu_id == 6:  # Поиск мероприятий
             for menu_item, date_code in self.date_code.items():
                 text_item = f"{menu_item} ({self.events_count[menu_item]})"
@@ -430,7 +432,8 @@ class Space:
                            f"Что бы убрать фото, отправьте /no_pic\n" \
                            f"Для отмены - /cancel"
             self.check_th()
-            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
+                             reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
 
     def my_items(self, bot, message):
         user_id = message.chat.id
@@ -842,10 +845,11 @@ class Space:
         def message_text(message):
             user_id = message.chat.id
             cur_time = int(time.time())
-            x = time.localtime(cur_time)
-            mid_night = cur_time - x.tm_sec - x.tm_min * 60 - x.tm_hour * 60 * 60
+
             # Check new day
             if time.localtime().tm_mday != self.day_today:
+                x = time.localtime(cur_time)
+                mid_night = cur_time - x.tm_sec - x.tm_min * 60 - x.tm_hour * 60 * 60
                 self.day_today = time.localtime().tm_mday
                 for buser_id in self.search.keys():
                     ss = self.search.get(buser_id).decode('utf-8')
