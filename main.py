@@ -12,6 +12,7 @@ import time
 import datetime
 import os
 import re
+import Levenshtein
 
 # Устанавливаем константы
 BOTCHAT_ID = -1001508419451  # Айди чата для ботов
@@ -126,6 +127,22 @@ class Space:
                               f"Для нового поиска отправьте любое слово, дату или фразу\n" \
                               f"Бот будет искать и присылать затеи пока не увидит команду /stop"
         self.day_today = -1
+
+        with open("geo_dolina.json") as json_file:
+            self.points = json.load(json_file)
+
+    # Определяем введённый населённый пункт и возвращаем его координаты
+    def get_point(self, text):
+        min_r_dist = -1
+        result = None
+        for key, geo in self.points.items():
+            r_dist = Levenshtein.distance(text, key)
+            if min_r_dist < 0 or r_dist < min_r_dist:
+                min_r_dist = r_dist
+                result = key, geo
+            if min_r_dist == 0:
+                break
+        return result
 
     def save_views(self):
         for bitem_id in self.views.keys():
@@ -309,8 +326,7 @@ class Space:
                                               f" https://t.me/{message.chat.username})"
             message_text = message_text + f"\nДля отмены введите /cancel"
             self.check_th()
-            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
-                             reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
 
         elif menu_id == 1:  # Выбор сферы для поиска
             self.users.hdel(user_id, "category")
@@ -430,6 +446,13 @@ class Space:
         elif menu_id == 7:  # Редактирование фото
             message_text = f"Пришлите фотографию и она будет прикреплена к вашей затее\n" \
                            f"Что бы убрать фото, отправьте /no_pic\n" \
+                           f"Для отмены - /cancel"
+            self.check_th()
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
+                             reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
+        elif menu_id == 8:  # Редактирование геометки
+            message_text = f"Пришлите геопозицию или отпавьте координаты текстом\n" \
+                           f"Что бы убрать геопозицию, отправьте /no_map\n" \
                            f"Для отмены - /cancel"
             self.check_th()
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
@@ -668,6 +691,20 @@ class Space:
                 if is_date(start_time, date_code):
                     self.send_item(bot, user_id, item_fix, is_ds=True)
 
+    # Устанавливаем локацию у затеи
+    def go_location(self, bot, message, location):
+        user_id = message.chat.id
+        item_id = int(self.users.hget(user_id, b'item'))
+        query = "UPDATE labels SET geo_lat = %s, geo_long = % WHERE id = %s"
+        self.cursor.execute(query, (location['latitude'], location['longitude'], item_id))
+        self.connection.commit()
+        self.send_item(bot, user_id, item_id, is_command=True)
+        self.check_th()
+        bot.send_message(user_id, "Место затеи обновлено")
+        self.users.hset(user_id, b'edit', 0)
+        bot.send_location(user_id, location['latitude'], location['longitude'],
+                          reply_to_message_id=int(self.users.hget(user_id, b'messge_id')))
+
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
 
@@ -771,6 +808,22 @@ class Space:
             finally:
                 self.send_item(bot, user_id, item_id, is_edited=True)
 
+        # Удаление локации
+        @bot.message_handler(commands=['no_map'])
+        def no_pic(message):
+            user_id = message.chat.id
+            item_id = int(self.users.hget(user_id, b'item'))
+            query = "UPDATE labels SET geo_lat = %s, geo_long = %s WHERE id = %s"
+            self.cursor.execute(query, (0, 0, item_id))
+            self.connection.commit()
+            self.send_item(bot, user_id, item_id, is_command=True)
+            self.check_th()
+            bot.send_message(user_id, f"Затея на карте больше не отмечена, вы всегда можете отметить её снова")
+            try:
+                bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+            finally:
+                self.send_item(bot, user_id, item_id, is_edited=True)
+
         # Обработка сообщений из deep space
         def ds_message(m_text, photo_id=None):
             end_pos = m_text.find(' ')
@@ -818,6 +871,14 @@ class Space:
             self.research(bot, ds_id)
             self.renew_cats()
             return
+
+
+        # Реакция на отправление геопозиции
+        @bot.message_handler(content_types=['location'])
+        def message_geo(message):
+            if int(self.users.hget(user_id, b'edit')) == 4:
+                location = {'longitude': message.location.longitude, 'latitude': message.location.latitude}
+                self.go_location(bot, message, location)
 
         # Обработка фото
         @bot.message_handler(content_types=['photo'])
@@ -925,6 +986,22 @@ class Space:
 
                 except ValueError:
                     self.go_menu(bot, message, 5)
+            elif int(self.users.hget(user_id, b'edit')) == 4:
+                point_name = None
+                if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
+                    location = {'latitude': float(message.text.split(',')[0]),
+                                'longitude': float(message.text.split(',')[1])}
+                else
+                    point_name, location = self.get_point(message.text)
+
+                if point_name is Not None:
+                    message_text = f"Выбрано село {point_name}. " \
+                                   f"Координаты: {location['latitude']}, {location['longitude']}"
+                    self.check_th()
+                    bot.send_message(user_id, message_text)
+
+                self.go_location(bot, message, location)
+
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
@@ -1060,6 +1137,12 @@ class Space:
                 self.users.hset(user_id, b'item', item_id)
                 self.users.hset(user_id, b'edit', 3)
                 self.go_menu(bot, call.message, 7)
+
+            if call.data[:3] == "map":
+                item_id = int(call.data.split('_')[1])
+                self.users.hset(user_id, b'item', item_id)
+                self.users.hset(user_id, b'edit', 4)
+                self.go_menu(bot, call.message, 8)
 
             if call.data[:3] == "loc":
                 item_id = call.data[4:]
