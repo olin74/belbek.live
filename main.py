@@ -697,7 +697,7 @@ class Space:
     def go_location(self, bot, message, location):
         user_id = message.chat.id
         item_id = int(self.users.hget(user_id, b'item'))
-        query = "UPDATE labels SET geo_lat = %s, geo_long = % WHERE id = %s"
+        query = "UPDATE labels SET geo_lat = %s, geo_long = %s WHERE id = %s"
         self.cursor.execute(query, (location['latitude'], location['longitude'], item_id))
         self.connection.commit()
         self.send_item(bot, user_id, item_id, is_command=True)
