@@ -989,20 +989,10 @@ class Space:
                 except ValueError:
                     self.go_menu(bot, message, 5)
             elif int(self.users.hget(user_id, b'edit')) == 4:
-                point_name = None
                 if re.fullmatch("^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$", message.text):
                     location = {'latitude': float(message.text.split(',')[0]),
                                 'longitude': float(message.text.split(',')[1])}
-                else:
-                    point_name, location = self.get_point(message.text)
-
-                if point_name is not None:
-                    m_text = f"Выбрано село {point_name}. " \
-                                   f"Координаты: {location['latitude']}, {location['longitude']}"
-                    self.check_th()
-                    bot.send_message(user_id, m_text)
-
-                self.go_location(bot, message, location)
+                    self.go_location(bot, message, location)
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
