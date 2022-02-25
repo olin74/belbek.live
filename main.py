@@ -280,8 +280,8 @@ class Space:
                                                                        callback_data=f"cat_{item_id}"))
                     item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[4],
                                                                    callback_data=f"pic_{item_id}"))
-                    # item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[5],
-                    #                                                callback_data=f"map_{item_id}"))
+                    item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[5],
+                                                                   callback_data=f"map_{item_id}"))
                     item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                    callback_data=f"del_{item_id}"))
                 elif not is_command and type(row[5]) is float:
@@ -455,7 +455,9 @@ class Space:
                            f"Что бы убрать геопозицию, отправьте /no_map\n" \
                            f"Для отмены - /cancel"
             self.check_th()
-            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
+            loc_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            loc_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
+            bot.send_message(user_id, message_text, reply_markup=loc_keyboard,
                              reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
 
     def my_items(self, bot, message):
@@ -872,7 +874,6 @@ class Space:
             self.renew_cats()
             return
 
-
         # Реакция на отправление геопозиции
         @bot.message_handler(content_types=['location'])
         def message_geo(message):
@@ -1002,7 +1003,6 @@ class Space:
                     bot.send_message(user_id, m_text)
 
                 self.go_location(bot, message, location)
-
 
         @bot.callback_query_handler(func=lambda call: True)
         def callback_worker(call):
