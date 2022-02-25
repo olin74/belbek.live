@@ -705,7 +705,7 @@ class Space:
         bot.send_message(user_id, "Место затеи обновлено")
         self.users.hset(user_id, b'edit', 0)
         bot.send_location(user_id, location['latitude'], location['longitude'],
-                          reply_to_message_id=int(self.users.hget(user_id, b'messge_id')))
+                          reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
