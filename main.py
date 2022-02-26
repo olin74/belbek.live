@@ -490,7 +490,8 @@ class Space:
         def send_ds():
             cnt = 0
             if item_fix is not None:
-                self.send_item(bot, user_id, item_fix, is_ds=True)
+                if self.deep_space.exists(item_fix):
+                    self.send_item(bot, user_id, item_fix, is_ds=True)
             else:
                 for i_id in self.deep_space.keys():
                     self.send_item(bot, user_id, i_id, is_ds=True)
