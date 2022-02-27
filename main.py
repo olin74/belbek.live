@@ -118,6 +118,9 @@ class Space:
         self.renew_cats()
 
         self.edit_items = ['📝 Описание', '📚 Направления', '❌ Удалить', '🕰 Дата и время', '📸 Фото', '🗺 Карта']
+        self.view_items = ['🔅 В избранное', '🔆 В избранном', '🗺 На карте', '⛔ Жалоба']
+        self.report_items = ['📵 Не получилось свзязаться', '👎 Низкое качество товара/услуги',
+                             '🚫 Нежелательная деятельность', 'Отмена']
         self.additional_scat = ['🛸 Другие площадки 🛰', '🌎 Все сферы 🌎', '📚 Все направления 📚', "🕰 Мероприятия 🕰"]
         self.limit_per_second = 5
         self.limit_counter = 0
@@ -232,7 +235,7 @@ class Space:
             if self.deep_space.hexists(item_id, b'photo'):
                 photo_id = self.deep_space.hget(item_id, b'photo').decode('utf-8')
             if self.deep_space.hexists(item_id, b'geo_lat'):
-                item_menu[0].append(types.InlineKeyboardButton(text="🗺 На карте",
+                item_menu[0].append(types.InlineKeyboardButton(text=self.view_items[2],
                                                                callback_data=f"loc_{item_id}"))
 
         else:
@@ -285,7 +288,7 @@ class Space:
                     item_menu[1].append(types.InlineKeyboardButton(text=self.edit_items[2],
                                                                    callback_data=f"del_{item_id}"))
                 elif not is_command and type(row[5]) is float:
-                    item_menu[0].append(types.InlineKeyboardButton(text="🗺 На карте",
+                    item_menu[0].append(types.InlineKeyboardButton(text=self.view_items[2],
                                                                    callback_data=f"loc_{item_id}"))
 
             elif is_command:
@@ -304,6 +307,24 @@ class Space:
                 bot.edit_message_text(chat_id=user_id, message_id=message_id, text=message_text, reply_markup=keyboard)
             else:
                 bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message_id,
+                                         reply_markup=keyboard)
+        except Exception as error:
+            print("Error: ", error)
+            if photo_id is None:
+                bot.send_message(user_id, message_text, reply_markup=keyboard)
+            else:
+                bot.send_photo(user_id, photo_id, message_text, reply_markup=keyboard)
+
+    def renew_menu(self, bot, message, user_id, message_text, keyboard):
+        photo_id = None
+        if type(message.photo) is list:
+            photo_id = message.photo[0].file_id
+        try:
+            if photo_id is None:
+                bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
+                                      reply_markup=keyboard)
+            else:
+                bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id,
                                          reply_markup=keyboard)
         except Exception as error:
             print("Error: ", error)
@@ -363,9 +384,7 @@ class Space:
             self.cursor.execute(query, (item_id,))
             row = self.cursor.fetchone()
             selected_cats = row[0]
-            photo_id = None
-            if type(message.photo) is list:
-                photo_id = message.photo[0].file_id
+
             keyboard_line = []
             message_text = f"Выберите одно или несколько направлений:\n" \
                            f"Выбрано {len(selected_cats)}\n"
@@ -389,41 +408,15 @@ class Space:
             keyboard_line.append(types.InlineKeyboardButton(text=f"☑️ Готово",
                                  callback_data=f"done_{item_id}"))
             keyboard.row(*keyboard_line)
-            try:
-                if photo_id is None:
-                    bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
-                                          reply_markup=keyboard)
-                else:
-                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id,
-                                             reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                if photo_id is None:
-                    bot.send_message(user_id, message_text, reply_markup=keyboard)
-                else:
-                    bot.send_photo(user_id, photo_id, message_text, reply_markup=keyboard)
+            self.renew_menu(bot, message, user_id, message_text, keyboard)
 
         elif menu_id == 4:  # Подтверждение удаления
             message_text = "Вы действительно хотите ❌ убрать ❌ эту затею из нашего космоса?"
-            keyboard.row(types.InlineKeyboardButton(text="Да, убираю 👎", callback_data=f"cdel_label"))
+            keyboard.row(types.InlineKeyboardButton(text="Да, убираю ❌", callback_data=f"cdel_label"))
             keyboard.row(types.InlineKeyboardButton(text="Нет, пусть остаётся 👍",
                                                     callback_data=f"item_{int(self.users.hget(user_id, b'item'))}"))
-            photo_id = None
-            if type(message.photo) is list:
-                photo_id = message.photo[0].file_id
-            try:
-                if photo_id is None:
-                    bot.edit_message_text(chat_id=user_id, message_id=message.message_id, text=message_text,
-                                          reply_markup=keyboard)
-                else:
-                    bot.edit_message_caption(caption=message_text, chat_id=user_id, message_id=message.message_id,
-                                             reply_markup=keyboard)
-            except Exception as error:
-                print("Error: ", error)
-                if photo_id is None:
-                    bot.send_message(user_id, message_text, reply_markup=keyboard)
-                else:
-                    bot.send_photo(user_id, photo_id, message_text, reply_markup=keyboard)
+            self.renew_menu(bot, message, user_id, message_text, keyboard)
+
         elif menu_id == 5:  # Редактирование времени итема
             now_time = datetime.datetime.fromtimestamp(int(time.time()))
             message_text = f"Пришлите дату и время меоприятия (в формате {FORMAT_DESC}), например:\n" \
@@ -432,6 +425,7 @@ class Space:
             self.check_th()
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
                              reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
+
         elif menu_id == 6:  # Поиск мероприятий
             for menu_item, date_code in self.date_code.items():
                 text_item = f"{menu_item} ({self.events_count[menu_item]})"
@@ -443,6 +437,7 @@ class Space:
             except Exception as error:
                 print("Error: ", error)
                 bot.send_message(user_id, message_text, reply_markup=keyboard)
+
         elif menu_id == 7:  # Редактирование фото
             message_text = f"Пришлите фотографию и она будет прикреплена к вашей затее\n" \
                            f"Что бы убрать фото, отправьте /no_pic\n" \
@@ -450,11 +445,14 @@ class Space:
             self.check_th()
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
                              reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
+
         elif menu_id == 8:  # Редактирование геометки
-            message_text = f"Пришлите геопозицию или отпавьте координаты текстом\n" \
+            message_text = f"Отправьте геопозицию или пришлите координаты текстом\n" \
                            f"Что бы убрать геопозицию, отправьте /no_map\n" \
                            f"Для отмены - /cancel"
-            self.check_th()
+            if not self.send_location(bot, int(self.users.hget(user_id, b'message_id')),
+                                      int(self.users.hget(user_id, b'item')), user_id):
+                message_text = f"Геопозиция не задана\n" + message_text
             loc_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             loc_keyboard.row(types.KeyboardButton(text="Отправить геопозицию", request_location=True))
             bot.send_message(user_id, message_text, reply_markup=loc_keyboard,
@@ -703,10 +701,30 @@ class Space:
         self.connection.commit()
         self.send_item(bot, user_id, item_id, is_command=True)
         self.check_th()
-        bot.send_message(user_id, "Место затеи обновлено")
+        bot.send_message(user_id, "Место затеи обновлено", reply_markup=types.ReplyKeyboardRemove())
         self.users.hset(user_id, b'edit', 0)
         bot.send_location(user_id, location['latitude'], location['longitude'],
                           reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
+
+    def send_location(self, bot, message_id, item_id, user_id):
+        if str(item_id).find('@') < 0:
+            query = "SELECT geo_lat, geo_long FROM labels WHERE id = %s"
+            self.cursor.execute(query, (int(item_id),))
+            row = self.cursor.fetchone()
+            if row is not None and row[0] is not None:
+                self.check_th()
+                bot.send_location(user_id, row[0], row[1], reply_to_message_id=message_id)
+                return True
+        else:
+
+            if self.deep_space.exists(item_id) and \
+                    self.deep_space.hexists(item_id, b'geo_lat'):
+                self.check_th()
+                bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
+                                  float(self.deep_space.hget(item_id, b'geo_long')),
+                                  reply_to_message_id=message_id)
+                return True
+        return False
 
     def deploy(self):
         bot = telebot.TeleBot(os.environ['TELEGRAM_TOKEN_SPACE'])
@@ -766,7 +784,7 @@ class Space:
             if int(self.users.hget(user_id, b'edit')) > 0:
                 self.users.hset(user_id, b'edit', 0)
                 self.check_th()
-                bot.send_message(user_id, "Ввод отменён")
+                bot.send_message(user_id, "Ввод отменён", reply_markup=types.ReplyKeyboardRemove())
 
         # Остановка поиска
         @bot.message_handler(commands=['stop'])
@@ -821,7 +839,8 @@ class Space:
             self.connection.commit()
             self.send_item(bot, user_id, item_id, is_command=True)
             self.check_th()
-            bot.send_message(user_id, f"Затея на карте больше не отмечена, вы всегда можете отметить её снова")
+            bot.send_message(user_id, f"Затея на карте больше не отмечена, вы всегда можете отметить её снова",
+                             reply_markup=types.ReplyKeyboardRemove())
             try:
                 bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
             finally:
@@ -1138,21 +1157,7 @@ class Space:
 
             if call.data[:3] == "loc":
                 item_id = call.data[4:]
-                if item_id.find('@') < 0:
-                    query = "SELECT geo_lat, geo_long FROM labels WHERE id = %s"
-                    self.cursor.execute(query, (int(item_id),))
-                    row = self.cursor.fetchone()
-                    if row is not None:
-                        self.check_th()
-                        bot.send_location(user_id, row[0], row[1], reply_to_message_id=call.message.message_id)
-                else:
-
-                    if self.deep_space.exists(item_id) and\
-                            self.deep_space.hexists(item_id, b'geo_lat'):
-                        self.check_th()
-                        bot.send_location(user_id, float(self.deep_space.hget(item_id, b'geo_lat')),
-                                          float(self.deep_space.hget(item_id, b'geo_long')),
-                                          reply_to_message_id=call.message.message_id)
+                self.send_location(bot, call.message.message_id, item_id, user_id)
 
         bot.polling()
         #  try:
