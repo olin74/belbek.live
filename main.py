@@ -227,7 +227,7 @@ class Space:
             self.views.set(iid, ovs + 1)
             return int(self.views.get(iid))
 
-        is_ds = str(item_id).find('@') < 0
+        is_ds = str(item_id).find('@') >= 0
         item_menu = [[], []]
         photo_id = None
         if is_ds:
