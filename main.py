@@ -1154,6 +1154,13 @@ class Space:
                 query = "DELETE FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 self.connection.commit()
+                try:
+                    self.check_th()
+                    bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
+                except Exception as error:
+                    print("Error : ", error)
+                self.users.hdel(user_id, b'message_id')
+
                 self.send_item(bot, user_id, label_id, is_command=True)
                 self.check_th()
                 bot.send_message(user_id, "Затея удалена")
