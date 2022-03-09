@@ -397,6 +397,8 @@ class Space:
             query = "SELECT subcategory from labels WHERE id=%s"
             self.cursor.execute(query, (item_id,))
             row = self.cursor.fetchone()
+            if row is None:
+                return
             selected_cats = row[0]
 
             keyboard_line = []
@@ -1120,6 +1122,8 @@ class Space:
                 query = "SELECT subcategory FROM labels WHERE id = %s"
                 self.cursor.execute(query, (label_id,))
                 row = self.cursor.fetchone()
+                if row is None:
+                    return
                 categories = row[0]
 
                 if cat in categories:
