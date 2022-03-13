@@ -358,7 +358,8 @@ class Space:
                                               f" https://t.me/{message.chat.username})"
             message_text = message_text + f"\nДля отмены введите /cancel"
             self.check_th()
-            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove())
+            bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
+                             disable_web_page_preview = True)
 
         elif menu_id == 1:  # Выбор сферы для поиска
             self.users.hdel(user_id, "category")
@@ -1014,7 +1015,8 @@ class Space:
                     self.send_item(bot, user_id, row[0], is_command=True)
                     self.check_th()
                     bot.send_message(user_id, "Затея опубликована. "
-                                              "Хотите помочь проекту? https://t.me/belbekspace_chat/10")
+                                              "Хотите помочь проекту? https://t.me/belbekspace_chat/10",
+                                     disable_web_page_preview = True)
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
