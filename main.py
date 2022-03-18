@@ -354,12 +354,12 @@ class Space:
 
             message_text = f"Пришлите описание затеи (лимит {ABOUT_LIMIT} символов),\n‼️ укажите контакты ‼️"
             if message.chat.username is not None:
-                message_text = message_text + f" (например, ссылку на свой телеграмм:" \
-                                              f" https://t.me/{message.chat.username})"
+                message_text = message_text + f" например, ссылку на свой телеграмм:\n" \
+                                              f"9https://t.me/{message.chat.username}"
             message_text = message_text + f"\nДля отмены введите /cancel"
             self.check_th()
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
-                             disable_web_page_preview = True)
+                             disable_web_page_preview=True)
 
         elif menu_id == 1:  # Выбор сферы для поиска
             self.users.hdel(user_id, "category")
@@ -725,12 +725,13 @@ class Space:
         self.cursor.execute(query, (location['latitude'], location['longitude'], item_id))
         self.connection.commit()
         self.send_item(bot, user_id, item_id, is_command=True)
-        self.check_th()
-        bot.send_message(user_id, "Место затеи обновлено", reply_markup=types.ReplyKeyboardRemove())
+
         self.users.hset(user_id, b'edit', 0)
         self.check_th()
         bot.send_location(user_id, location['latitude'], location['longitude'],
                           reply_to_message_id=int(self.users.hget(user_id, b'message_id')))
+        self.check_th()
+        bot.send_message(user_id, "Место затеи обновлено", reply_markup=types.ReplyKeyboardRemove())
 
     # Отправка геоданных затеи
     def send_location(self, bot, message_id, item_id, user_id):
@@ -834,15 +835,16 @@ class Space:
             self.cursor.execute(query, (0, item_id))
             self.connection.commit()
             self.send_item(bot, user_id, item_id, is_command=True)
-            self.check_th()
-            bot.send_message(user_id, f"Вермя начала затеи удалено, что бы вернуть время,"
-                                      f" следует отметить затею как {self.additional_scat[3]}")
+
             try:
                 self.check_th()
                 bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
             finally:
                 self.check_th()
                 self.send_item(bot, user_id, item_id, is_edited=True)
+            self.check_th()
+            bot.send_message(user_id, f"Вермя начала затеи удалено, что бы вернуть время,"
+                                      f" следует отметить затею как {self.additional_scat[3]}")
 
         # Удаление фото
         @bot.message_handler(commands=['no_pic'])
@@ -853,13 +855,13 @@ class Space:
             self.cursor.execute(query, (None, item_id,))
             self.connection.commit()
             self.send_item(bot, user_id, item_id, is_command=True)
-            self.check_th()
-            bot.send_message(user_id, f"Фото удалено, вы всегда можете его загрузить другое")
             try:
                 self.check_th()
                 bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
             finally:
                 self.send_item(bot, user_id, item_id, is_edited=True)
+            self.check_th()
+            bot.send_message(user_id, f"Фото удалено, вы всегда можете его загрузить другое")
 
         # Удаление локации
         @bot.message_handler(commands=['no_map'])
@@ -944,13 +946,13 @@ class Space:
                 self.cursor.execute(query, (message.photo[0].file_id, item_id))
                 self.connection.commit()
                 self.send_item(bot, user_id, item_id, is_command=True)
-                self.check_th()
-                bot.send_message(user_id, "Фото затеи обновлено")
                 try:
                     self.check_th()
                     bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
                 finally:
                     self.send_item(bot, user_id, item_id, is_edited=True)
+                self.check_th()
+                bot.send_message(user_id, "Фото затеи обновлено")
 
         # Обработка всех текстовых команд
         @bot.message_handler(content_types=['text'])
@@ -993,14 +995,14 @@ class Space:
                     query = "UPDATE labels SET about = %s WHERE id = %s"
                     self.cursor.execute(query, (about, item_id))
                     self.connection.commit()
-                    self.check_th()
-                    bot.send_message(user_id, "Описание затеи изменено")
                     self.send_item(bot, user_id, item_id, is_command=True)
                     try:
                         self.check_th()
                         bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
                     finally:
                         self.send_item(bot, user_id, item_id, is_edited=True)
+                    self.check_th()
+                    bot.send_message(user_id, "Описание затеи изменено")
                     self.research(bot, item_id, if_cat=False, if_date=False)
                 if item_id == 0:
                     query = "INSERT INTO labels (about, subcategory, author, time_added, username) " \
@@ -1016,7 +1018,7 @@ class Space:
                     self.check_th()
                     bot.send_message(user_id, "Затея опубликована. "
                                               "Хотите помочь проекту? https://t.me/belbekspace_chat/10",
-                                     disable_web_page_preview = True)
+                                     disable_web_page_preview=True)
                     # self.send_item(bot, user_id, row[0], is_edited=True,
                     #               message_id=int(self.users.hget(user_id, b'message_id')))
                     self.go_menu(bot, message, 3)
@@ -1030,13 +1032,13 @@ class Space:
                     self.cursor.execute(query, (start_time, item_id))
                     self.connection.commit()
                     self.send_item(bot, user_id, item_id, is_command=True)
-                    self.check_th()
-                    bot.send_message(user_id, "Время начала затеи изменено")
                     try:
                         self.check_th()
                         bot.delete_message(user_id, int(self.users.hget(user_id, b'message_id')))
                     finally:
                         self.send_item(bot, user_id, item_id, is_edited=True)
+                    self.check_th()
+                    bot.send_message(user_id, "Время начала затеи изменено")
                     self.research(bot, user_id, if_cat=False)
                     self.renew_cats()
 
