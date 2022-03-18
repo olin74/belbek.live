@@ -355,7 +355,7 @@ class Space:
             message_text = f"Пришлите описание затеи (лимит {ABOUT_LIMIT} символов),\n‼️ укажите контакты ‼️"
             if message.chat.username is not None:
                 message_text = message_text + f" например, ссылку на свой телеграмм:\n" \
-                                              f"9https://t.me/{message.chat.username}"
+                                              f"https://t.me/{message.chat.username}"
             message_text = message_text + f"\nДля отмены введите /cancel"
             self.check_th()
             bot.send_message(user_id, message_text, reply_markup=types.ReplyKeyboardRemove(),
