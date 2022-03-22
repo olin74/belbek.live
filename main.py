@@ -573,6 +573,8 @@ class Space:
                     self.send_item(bot, user_id, item_id)
                     count += 1
         if item_fix is None:
+            if self.users.hget(user_id, "category") is None:
+                return
             category = self.users.hget(user_id, "category").decode("utf-8")
             message_text = f"🔎 {category}"
             if category != self.additional_scat[0] and self.users.hexists(user_id, "subcategory"):
